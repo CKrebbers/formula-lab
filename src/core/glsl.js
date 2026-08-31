@@ -370,6 +370,10 @@ void main() {
   }
   float x = p.x;
   float y = p.y;
+  // one screen pixel in the pre-remap uv space (see ADR #26): the step for
+  // neighbour sampling — prev(x + dx, y) - prev(x - dx, y) and friends
+  float dx = 2.0 / min(u_resolution.x, u_resolution.y);
+  float dy = dx;
   float t = u_time;
   float r = length(uv);
   float th = atan(uv.y, uv.x);

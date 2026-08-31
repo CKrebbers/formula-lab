@@ -12,6 +12,14 @@ describe('parser: valid formulas', () => {
     expect(parse('th')).toEqual({ type: 'var', name: 'th' });
   });
 
+  it('parses the pixel-step variables dx and dy', () => {
+    expect(parse('dx')).toEqual({ type: 'var', name: 'dx' });
+    expect(parse('dy')).toEqual({ type: 'var', name: 'dy' });
+    const ast = parse('prev(x + dx, y) - prev(x - dx, y)');
+    expect(validate(ast).ok).toBe(true);
+    expect(ast.left.args[0].right).toEqual({ type: 'var', name: 'dx' });
+  });
+
   it('parses binary operators with precedence', () => {
     // 1 + 2 * 3 → 1 + (2 * 3)
     const ast = parse('1 + 2 * 3');

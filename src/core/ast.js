@@ -4,14 +4,16 @@
 /**
  * Node shapes (plain JSON-serializable objects):
  *   { type: 'num',  value: number }
- *   { type: 'var',  name: string }                     // x, y, t, r, th, mx, my, i
+ *   { type: 'var',  name: string }                     // x, y, t, r, th, mx, my, i, dx, dy
  *   { type: 'param', name: string }                    // extracted constant (a, b, c…), driven as uniform
  *   { type: 'neg',  arg: node }                        // unary minus
  *   { type: 'bin',  op: string, left: node, right: node }
  *   { type: 'call', name: string, args: node[] }
  */
 
-export const VARIABLES = ['x', 'y', 't', 'r', 'th', 'mx', 'my', 'i'];
+// dx/dy are the size of one screen pixel in the pre-remap uv space that x/y
+// are built from — the step you need for neighbour sampling and derivatives.
+export const VARIABLES = ['x', 'y', 't', 'r', 'th', 'mx', 'my', 'i', 'dx', 'dy'];
 
 export const BINARY_OPS = ['+', '-', '*', '/', '^', '<', '>', '=='];
 

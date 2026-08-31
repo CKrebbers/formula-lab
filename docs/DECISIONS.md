@@ -100,6 +100,13 @@
     a warp that walks off the edge smears the border rather than teleporting to the
     opposite side. The buffer resets to black, so prev() reads -1 on the first
     frame, after a formula change and after a resize.
+26. **dx/dy are pre-remap, and they are variables, not uniforms.** They hold the size
+    of one screen pixel in the same uv space x/y are built from
+    (`2.0 / min(u_resolution.x, u_resolution.y)`), derived per fragment rather than
+    set by the CPU. Consequence, accepted on purpose: under polar/toroidal coords
+    x/y are remapped, so `prev(x + dx, y)` is NOT a guaranteed screen-space
+    neighbour there. One definition, one instruction, and the cartesian Laplacian
+    is the point; polar-neighbour sugar can come later if it earns its place.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

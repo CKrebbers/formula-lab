@@ -123,9 +123,13 @@ describe('glsl: full shader (golden structure)', () => {
     expect(usesPrev(parse('x + prev(x, y) * 2.0'))).toBe(true);
     expect(usesPrev(parse('vec3(prev(x, y), 0.0, 0.0)'))).toBe(true);
     expect(usesPrev(parse('sin(x * y + t) + fbm(x, y, 4.0)'))).toBe(false);
-    // a prev-free formula transpiles byte-identically to the pre-feedback build
+    // a prev-free formula emits no feedback path at all (the sampler, the
+    // helper and the alpha write are what matter — a mention of prev in a
+    // comment is not the feedback path)
     const before = transpile(parse('sin(x * y * 4.0 + t) + cos(3.0 * x)')).fragmentSource;
-    expect(before).not.toMatch(/prev/);
+    expect(before).not.toContain('u_prev');
+    expect(before).not.toContain('fl_prev');
+    expect(before).toContain('outColor = vec4(color, 1.0);');
   });
 
   it('embeds all palettes and the tone/palette/smooth uniforms', () => {
@@ -146,11 +150,20 @@ describe('glsl: full shader (golden structure)', () => {
   });
 
   it('declares every formula variable', () => {
-    const { fragmentSource } = transpile(parse('x + y + t + r + th + mx + my + i'));
+    const { fragmentSource } = transpile(parse('x + y + t + r + th + mx + my + i + dx + dy'));
     for (const decl of ['float x =', 'float y =', 'float t =', 'float r =',
-      'float th =', 'float mx =', 'float my =', 'float i =']) {
+      'float th =', 'float mx =', 'float my =', 'float i =',
+      'float dx =', 'float dy =']) {
       expect(fragmentSource).toContain(decl);
     }
+  });
+
+  it('derives dx/dy from u_resolution — one screen pixel in uv space', () => {
+    const { fragmentSource } = transpile(parse('dx + dy'));
+    expect(fragmentSource).toContain('float dx = 2.0 / min(u_resolution.x, u_resolution.y);');
+    expect(fragmentSource).toContain('float dy = dx;');
+    // derived per fragment, never set by the CPU
+    expect(fragmentSource).not.toContain('uniform float u_dx');
   });
 
   it('refuses an invalid AST', () => {
