@@ -50,7 +50,30 @@
     }
     .slider-btn:hover:not(:disabled) { border-color: #c6b7be; color: #fafbf6; }
     .slider-btn:disabled { opacity: 0.4; cursor: default; }
-    #actions { display: flex; gap: 6px; }
+    #actions, #actions2 { display: flex; gap: 6px; flex-wrap: wrap; }
+    select.slider-btn { appearance: none; }
+    #lineage:empty { display: none; }
+    .lineage-head {
+      display: flex; justify-content: space-between; align-items: center;
+      color: #8be9b6; padding: 2px 0;
+    }
+    .stars button {
+      background: none; border: none; color: #c6b7be; cursor: pointer;
+      padding: 0 1px; font-size: 13px;
+    }
+    .stars button:hover { color: #fafbf6; }
+    .lineage-row { display: flex; align-items: center; gap: 4px; padding: 2px 0; }
+    .lineage-tag { width: 52px; font-size: 10px; color: #565a75; }
+    .lineage-row img {
+      width: 32px; height: 32px; cursor: pointer;
+      image-rendering: pixelated; border: 1px solid #565a75;
+    }
+    .lineage-row img:hover { border-color: #fafbf6; }
+    .archive-rating {
+      position: absolute; left: 0; bottom: 0; font-size: 9px;
+      background: rgba(15, 15, 27, 0.85); color: #8be9b6; padding: 0 3px;
+      pointer-events: none;
+    }
     #sheet {
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
     }
@@ -96,14 +119,29 @@
     <div id="actions">
       <button id="reroll-all" class="slider-btn" title="reroll all unlocked params">⟳ all</button>
       <button id="coords" class="slider-btn" title="coordinates: cartesian → polar → toroidal">cart</button>
-      <button id="make-sheet" class="slider-btn" title="3×3 contact sheet: 8 const_tweak variants">3×3</button>
+      <button id="make-sheet" class="slider-btn" title="quick sheet: 8 const_tweak variants">3×3</button>
+      <button id="mutate" class="slider-btn" title="mutation sheet: §6 operators, filtered, sorted by novelty">mut</button>
+      <button id="xover" class="slider-btn" title="crossover with a random archived snapshot">xover</button>
+      <select id="mask" class="slider-btn" title="mutation mask">
+        <option value="all">all</option>
+        <option value="constants">const</option>
+        <option value="structure">struct</option>
+      </select>
+    </div>
+    <div id="actions2">
       <button id="save" class="slider-btn" title="save snapshot to archive">save</button>
       <button id="permalink" class="slider-btn" title="copy permalink URL">link</button>
       <button id="export" class="slider-btn" title="download archive as JSON">exp</button>
       <button id="import" class="slider-btn" title="import archive JSON">imp</button>
+      <select id="sort" class="slider-btn" title="archive sort">
+        <option value="new">new</option>
+        <option value="top">top</option>
+        <option value="novel">novel</option>
+      </select>
       <input id="import-file" type="file" accept=".json,application/json" hidden />
     </div>
     <div id="sheet"></div>
+    <div id="lineage"></div>
     <div id="archive"></div>
   </div>
   <div id="status">loading…</div>

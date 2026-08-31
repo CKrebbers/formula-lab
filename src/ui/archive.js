@@ -35,6 +35,12 @@ export class ArchivePanel {
       });
 
       item.append(img, del);
+      if (snap.rating) {
+        const badge = document.createElement('span');
+        badge.className = 'archive-rating';
+        badge.textContent = `★${snap.rating}`;
+        item.appendChild(badge);
+      }
       this.container.appendChild(item);
     }
   }

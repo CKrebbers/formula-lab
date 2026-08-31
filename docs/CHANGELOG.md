@@ -34,3 +34,17 @@ broke the `h` panel toggle. 92 tests green.
 **besluit:** v1 feature-complete minus attractors. DoD check is on Clay: one full
 evening in the tool without leaving it. Next build step: attractor density path
 (CPU histogram → texture) or straight to v2 mutation operators — Clay's call.
+
+## 2026-08-31 — Session 1 (v2)
+
+**status:** Clay chose v2-first (audio/sequences/preference-learning parked until
+this layer exists). Shipped in three commits: (A) all §6 operators + crossover +
+LHS + AST printer, fuzz-tested; (B) §7 stats (raw-render), reject rules, novelty,
+FFT; (C) UI — 'mut' sheet with masks (filtered, novelty-sorted, verified 8/8 live),
+'xover', lineage strip with rating stars, archive sort new/top/novel, real stats
+on every save. 143 tests green.
+
+**besluit:** v2 complete except the Sprott button (parked with attractors) and
+MAP-Elites-grade auto-explore (that's v3). v2 DoD is now measurable: ≥50 snapshots
+rated ≥4 that Clay didn't type. Audio-reactivity is the natural next build once
+the archive starts filling.

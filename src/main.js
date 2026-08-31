@@ -1,5 +1,5 @@
-// Bootstrap: editor → parser → param extraction → GLSL → WebGL2, with
-// auto-sliders (lock/reroll/LFO), coords toggle, contact sheet and archive.
+// Bootstrap: editor → parser → params → GLSL → WebGL2, plus the v2 layer:
+// masked mutation sheets, §7 filter, novelty, lineage, ratings.
 
 import { parse } from './core/parser.js';
 import { serialize } from './core/ast.js';
@@ -7,10 +7,14 @@ import { transpile } from './core/glsl.js';
 import { extractParams } from './core/constants.js';
 import { Renderer } from './render/gl.js';
 import { TileRenderer } from './render/tile.js';
+import { HistCache } from './render/thumbs.js';
+import { computeStats, averageStats } from './search/filter.js';
+import { noveltyOf } from './search/novelty.js';
 import { initEditor } from './ui/editor.js';
 import { SliderPanel } from './ui/sliders.js';
 import { ContactSheet } from './ui/sheet.js';
 import { ArchivePanel } from './ui/archive.js';
+import { LineagePanel } from './ui/lineage.js';
 import { initFamilyPicker } from './ui/families.js';
 import { Archive } from './store/archive.js';
 import { createSnapshot, COORD_NAMES } from './store/snapshot.js';
@@ -22,42 +26,65 @@ const COORDS = ['cart', 'polar', 'torus'];
 const el = (id) => document.getElementById(id);
 const canvas = el('canvas');
 const statusEl = el('status');
-const panelEl = el('panel');
 const textarea = el('formula');
-const errorEl = el('error');
 
 const state = { time: 0, mouse: [0, 0], params: {}, coords: 0 };
 let currentMode = 'scalar';
-let lastAst = null;
+let lastAst = null;          // raw parsed AST (num literals)
+let currentParamAst = null;  // AST with param nodes
+let currentShader = null;    // { fragmentSource, paramNames }
 let currentFamily = null;
+let currentParentIds = [];   // lineage chain: last saved/loaded snapshot
+let pendingOrigin = null;    // 'mutate' | 'crossover' when promoted from a sheet
+let pendingOperator = null;
 
 const renderer = new Renderer(canvas);
 const tileRenderer = new TileRenderer(128);
 const archive = new Archive(localStorage);
+const histCache = new HistCache();
 
 const sliders = new SliderPanel(el('sliders'), (name, value) => {
   state.params[name] = value;
 });
 
-const sheet = new ContactSheet(el('sheet'), (params) => {
-  for (const [name, value] of Object.entries(params)) sliders.setValue(name, value);
+const sheet = new ContactSheet(el('sheet'), {
+  onPromoteParams(params) {
+    for (const [name, value] of Object.entries(params)) sliders.setValue(name, value);
+    pendingOrigin = 'mutate';
+    pendingOperator = 'const_tweak';
+  },
+  onPromoteFormula({ source, operator }) {
+    textarea.value = source;
+    editor.apply();
+    pendingOrigin = operator === 'crossover' ? 'crossover' : 'mutate';
+    pendingOperator = operator;
+  },
 });
 
-const archivePanel = new ArchivePanel(
-  el('archive'),
-  (snap) => loadSnapshot(snap),
-  (id) => { archive.remove(id); archivePanel.refresh(archive.list()); }
-);
+const archivePanel = new ArchivePanel(el('archive'), loadSnapshot, (id) => {
+  archive.remove(id);
+  refreshArchive();
+});
+
+const lineagePanel = new LineagePanel(el('lineage'), loadSnapshot, (id, rating) => {
+  const snap = archive.get(id);
+  if (!snap) return;
+  archive.save({ ...snap, rating });
+  refreshArchive();
+  lineagePanel.show({ ...snap, rating }, archive.parents(id), archive.children(id));
+});
 
 function applyFormula(source) {
   const parsed = parse(source);
   const { ast, params } = extractParams(parsed);
-  const { fragmentSource, mode, paramNames } = transpile(ast);
-  renderer.setFragmentShader(fragmentSource, paramNames);
-  tileRenderer.setShader(fragmentSource, paramNames);
+  const compiled = transpile(ast);
+  renderer.setFragmentShader(compiled.fragmentSource, compiled.paramNames);
+  tileRenderer.setShader(compiled.fragmentSource, compiled.paramNames);
   state.params = { ...params };
-  currentMode = mode;
+  currentMode = compiled.mode;
   lastAst = parsed;
+  currentParamAst = ast;
+  currentShader = { fragmentSource: compiled.fragmentSource, paramNames: compiled.paramNames };
   sliders.rebuild(params);
   sheet.clear();
   updateStatus();
@@ -76,13 +103,17 @@ function updateStatus(extra = '') {
 
 function loadSnapshot(snap) {
   textarea.value = snap.formula.source;
-  editor.apply(); // rebuilds params from the source literals…
+  editor.apply();
   for (const [name, value] of Object.entries(snap.params)) {
-    if (name in state.params) sliders.setValue(name, value); // …then restore live values
+    if (name in state.params) sliders.setValue(name, value);
   }
   for (const [name, locked] of Object.entries(snap.locks)) sliders.setLock(name, locked);
   setCoords(Math.max(0, COORD_NAMES.indexOf(snap.coords)));
   currentFamily = snap.family ?? null;
+  currentParentIds = [snap.id];
+  pendingOrigin = null;
+  pendingOperator = null;
+  lineagePanel.show(snap, archive.parents(snap.id), archive.children(snap.id));
 }
 
 function loadFamily(family) {
@@ -90,10 +121,14 @@ function loadFamily(family) {
   editor.apply();
   setCoords(Math.max(0, COORD_NAMES.indexOf(family.coords)));
   currentFamily = family.id;
+  pendingOrigin = null;
+  pendingOperator = null;
 }
 
 function saveSnapshot() {
   if (!lastAst) return;
+  const s0 = tileRenderer.readStats({ ...state, time: 0 });
+  const s1 = tileRenderer.readStats({ ...state, time: 1 });
   const snapshot = createSnapshot({
     source: textarea.value,
     ast: JSON.parse(serialize(lastAst)),
@@ -102,12 +137,58 @@ function saveSnapshot() {
     coords: COORD_NAMES[state.coords],
     time: state.time,
     thumb: tileRenderer.thumbnail(state),
-    origin: currentFamily ? 'family' : 'typed',
+    origin: pendingOrigin ?? (currentFamily ? 'family' : 'typed'),
+    operator: pendingOperator,
     family: currentFamily,
+    parent_ids: currentParentIds,
   });
+  snapshot.stats = averageStats(
+    computeStats(s0.pixels, s0.width, s0.height),
+    computeStats(s1.pixels, s1.width, s1.height)
+  );
   archive.save(snapshot);
-  archivePanel.refresh(archive.list());
+  currentParentIds = [snapshot.id];
+  refreshArchive();
+  lineagePanel.show(snapshot, archive.parents(snapshot.id), archive.children(snapshot.id));
   updateStatus(' · saved');
+}
+
+async function refreshArchive() {
+  const list = archive.list();
+  const sort = el('sort').value;
+  if (sort === 'top') {
+    list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  } else if (sort === 'novel') {
+    const hists = await histCache.forSnapshots(list);
+    const scored = list.map((snap, i) => ({
+      snap,
+      score: hists[i]
+        ? noveltyOf(hists[i], hists.filter((h, j) => h && j !== i))
+        : 0,
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    archivePanel.refresh(scored.map((s) => s.snap));
+    return;
+  }
+  archivePanel.refresh(list);
+}
+
+async function mutateSheet(partnerAst = null) {
+  if (!currentParamAst) return;
+  updateStatus(' · mutating…');
+  const archiveHists = (await histCache.forSnapshots(archive.list())).filter(Boolean);
+  const { shown, tried } = sheet.generateMutations({
+    tileRenderer,
+    ast: currentParamAst,
+    params: state.params,
+    locks: sliders.locks,
+    state,
+    mask: el('mask').value,
+    archiveHists,
+    partner: partnerAst,
+    parentShader: currentShader,
+  });
+  updateStatus(` · ${shown}/${tried} passed the filter`);
 }
 
 function downloadArchive() {
@@ -135,15 +216,26 @@ async function copyPermalink() {
   }
 }
 
-const editor = initEditor(textarea, errorEl, applyFormula);
+const editor = initEditor(textarea, el('error'), applyFormula);
 initFamilyPicker(el('family'), loadFamily);
 
-textarea.addEventListener('input', () => { currentFamily = null; }); // typing = no longer a stock family
+textarea.addEventListener('input', () => {
+  currentFamily = null;
+  pendingOrigin = null;
+  pendingOperator = null;
+});
 
 el('reroll-all').addEventListener('click', () => sliders.rerollAll());
 el('coords').addEventListener('click', () => setCoords((state.coords + 1) % COORDS.length));
 el('make-sheet').addEventListener('click', () =>
-  sheet.generate(tileRenderer, state.params, sliders.locks, state));
+  sheet.generateTweak(tileRenderer, state.params, sliders.locks, state));
+el('mutate').addEventListener('click', () => mutateSheet());
+el('xover').addEventListener('click', () => {
+  const pool = archive.list();
+  if (!pool.length) return updateStatus(' · save something to cross with first');
+  const partner = pool[Math.floor(Math.random() * pool.length)];
+  mutateSheet(partner.formula.ast);
+});
 el('save').addEventListener('click', saveSnapshot);
 el('permalink').addEventListener('click', copyPermalink);
 el('export').addEventListener('click', downloadArchive);
@@ -153,13 +245,14 @@ el('import-file').addEventListener('change', async (e) => {
   if (!file) return;
   try {
     const added = archive.importJSON(await file.text());
-    archivePanel.refresh(archive.list());
+    refreshArchive();
     updateStatus(` · imported ${added}`);
   } catch (err) {
     updateStatus(` · import failed: ${err.message}`);
   }
   e.target.value = '';
 });
+el('sort').addEventListener('change', refreshArchive);
 
 window.addEventListener('mousemove', (e) => {
   state.mouse = [
@@ -170,7 +263,7 @@ window.addEventListener('mousemove', (e) => {
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'h' && document.activeElement !== textarea) {
-    panelEl.hidden = !panelEl.hidden;
+    el('panel').hidden = !el('panel').hidden;
   }
 });
 
@@ -185,7 +278,7 @@ if (fromUrl) {
   for (const [name, locked] of Object.entries(fromUrl.locks)) sliders.setLock(name, locked);
   setCoords(Math.max(0, COORD_NAMES.indexOf(fromUrl.coords)));
 }
-archivePanel.refresh(archive.list());
+refreshArchive();
 
 const start = performance.now();
 function frame(now) {

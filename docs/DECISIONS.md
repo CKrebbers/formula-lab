@@ -51,6 +51,18 @@
     #panel (the `h` key silently never worked). Global `[hidden] { display: none
     !important; }` now guards every hideable element. CSS-level, so no unit test —
     verified live in the browser.
+18. **v2 stats run on palette-free renders** (`u_raw` uniform): the 4-color LUT caps
+    luminance entropy at log2(4)/log2(64) ≈ 0.33, breaking the §7 thresholds. Novelty,
+    by contrast, uses the PALETTE pixels — §7 compares against archived thumbs, which
+    are palette renders; both sides must match.
+19. **Mutation sheet ('mut')**: masks all/const/struct; 'const' mask uses stratified
+    LHS rerolls (§6), 'struct'/'all' use mutateOnce. coords_flip stays a manual button,
+    not a sheet operator. Candidates: max 60 attempts for 8 accepted; center = parent;
+    sorted by novelty desc. 'xover' crosses with a RANDOM archived snapshot.
+20. **Lineage chain**: parent_ids = [last saved/loaded snapshot]. Loading, saving, or
+    promoting keeps the chain; typing by hand resets origin to 'typed' but keeps the
+    parent link. Rating lives on the loaded snapshot via the lineage strip (click the
+    current star again to clear).
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate
