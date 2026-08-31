@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formula Lab</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0f0f1b; overflow: hidden; }
+    body, input, button, textarea { font: 12px/1.4 monospace; color: #c6b7be; }
+    #canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+
+    #panel {
+      position: fixed; top: 8px; left: 8px; width: 360px;
+      background: rgba(15, 15, 27, 0.85); border: 1px solid #565a75;
+      padding: 8px; display: flex; flex-direction: column; gap: 6px;
+    }
+    #formula {
+      width: 100%; box-sizing: border-box; resize: vertical;
+      background: #0f0f1b; color: #fafbf6; border: 1px solid #565a75;
+      padding: 4px 6px; outline: none;
+    }
+    #formula:focus { border-color: #c6b7be; }
+    #error {
+      margin: 0; padding: 4px 6px; white-space: pre-wrap;
+      color: #ff5566; background: rgba(255, 85, 102, 0.08);
+      border: 1px solid rgba(255, 85, 102, 0.4);
+    }
+    #sliders { display: flex; flex-direction: column; gap: 2px; }
+    .slider-row { display: flex; align-items: center; gap: 6px; }
+    .slider-row.locked { opacity: 0.55; }
+    .slider-name { width: 24px; text-align: right; color: #fafbf6; }
+    .slider-row input[type="range"] { flex: 1; accent-color: #c6b7be; }
+    .slider-value { width: 60px; text-align: right; }
+    .slider-btn {
+      background: none; border: 1px solid #565a75; color: #c6b7be;
+      cursor: pointer; padding: 0 5px; line-height: 1.5;
+    }
+    .slider-btn:hover:not(:disabled) { border-color: #c6b7be; color: #fafbf6; }
+    .slider-btn:disabled { opacity: 0.4; cursor: default; }
+    #reroll-all { align-self: flex-start; }
+
+    #status {
+      position: fixed; left: 8px; bottom: 8px;
+      background: rgba(15, 15, 27, 0.7); padding: 4px 8px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="panel">
+    <textarea id="formula" rows="3" spellcheck="false"></textarea>
+    <pre id="error" hidden></pre>
+    <div id="sliders"></div>
+    <button id="reroll-all" class="slider-btn" title="reroll all unlocked params">⟳ all</button>
+  </div>
+  <div id="status">loading…</div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
