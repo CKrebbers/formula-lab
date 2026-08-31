@@ -74,6 +74,18 @@ export class SliderPanel {
     const maxLabel = document.createElement('span');
     maxLabel.className = 'range-bound';
 
+    // shrink arrows: pull a bound halfway toward the current value per click
+    const shrinkMin = document.createElement('button');
+    shrinkMin.className = 'range-btn';
+    shrinkMin.textContent = '»';
+    shrinkMin.title = 'shorten: pull the minimum toward the current value';
+    shrinkMin.addEventListener('click', () => this.shrinkRange(name, 'min'));
+    const shrinkMax = document.createElement('button');
+    shrinkMax.className = 'range-btn';
+    shrinkMax.textContent = '«';
+    shrinkMax.title = 'shorten: pull the maximum toward the current value';
+    shrinkMax.addEventListener('click', () => this.shrinkRange(name, 'max'));
+
     const autoBtn = document.createElement('button');
     autoBtn.className = 'slider-btn';
     autoBtn.title = 'automation: off → sine → triangle → walk → ♪bass → ♪mid → ♪high';
@@ -161,7 +173,7 @@ export class SliderPanel {
 
     const wrap = document.createElement('div');
     wrap.className = 'slider-wrap';
-    row.append(label, minLabel, slider, maxLabel, readout, autoBtn, lock, rerollBtn);
+    row.append(label, shrinkMin, minLabel, slider, maxLabel, shrinkMax, readout, autoBtn, lock, rerollBtn);
     wrap.append(row, autoRow);
     this.rows[name] = {
       slider, readout, range, lockBtn: lock,
@@ -191,6 +203,25 @@ export class SliderPanel {
     row.slider.title = 'push an end to extend · double-click to re-center · scroll to zoom';
     flashBound(row.minLabel, formatBound(min));
     flashBound(row.maxLabel, formatBound(max));
+  }
+
+  /**
+   * Shrink one bound halfway toward the current value ("» «" arrows).
+   * Repeat-clicking converges tightly around where the param sits now.
+   */
+  shrinkRange(name, side) {
+    const row = this.rows[name];
+    if (!row) return;
+    const r = row.range;
+    const v = parseFloat(row.slider.value);
+    const minSpan = Math.max(1e-6, (r.max - r.min) * 0.02);
+    if (side === 'min') {
+      const newMin = Math.min(r.min + (v - r.min) * 0.5, v - minSpan);
+      this.setRange(name, newMin, r.max);
+    } else {
+      const newMax = Math.max(r.max - (r.max - v) * 0.5, v + minSpan);
+      this.setRange(name, r.min, newMax);
+    }
   }
 
   /** Ratchet: while the thumb is pinned to an end, grow that side. */
