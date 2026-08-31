@@ -84,6 +84,15 @@ describe('parser: valid formulas', () => {
     });
   });
 
+  it('parses the bitwise helpers', () => {
+    const ast = parse('band(i * bor(shr(i, 8.0), shr(i, 9.0)), 46.0)');
+    expect(validate(ast).ok).toBe(true);
+    expect(ast.name).toBe('band');
+    expect(parse('bxor(i, 255.0)').name).toBe('bxor');
+    expect(parse('bnot(i)').args).toHaveLength(1);
+    expect(parse('shl(i, 3.0)').name).toBe('shl');
+  });
+
   it('parses length with 1 or 2 args', () => {
     expect(parse('length(x)').args).toHaveLength(1);
     expect(parse('length(x, y)').args).toHaveLength(2);
@@ -134,6 +143,14 @@ describe('parser: invalid formulas report exact columns', () => {
     expect(e.message).toContain("'prev' expects 2 argument(s), got 1");
     expect(e.column).toBe(10);
     expect(errorAt('prev(x, y, t)').message).toContain('got 3');
+  });
+
+  it('rejects bitwise helpers with the wrong arity, at their column', () => {
+    const e = errorAt('sin(x) + band(i)');
+    expect(e.message).toContain("'band' expects 2 argument(s), got 1");
+    expect(e.column).toBe(10);
+    expect(errorAt('bnot(x, y)').message).toContain("'bnot' expects 1 argument(s), got 2");
+    expect(errorAt('shr(i)').message).toContain('got 1');
   });
 
   it('rejects unbalanced parens', () => {

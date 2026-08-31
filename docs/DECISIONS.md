@@ -107,6 +107,18 @@
     x/y are remapped, so `prev(x + dx, y)` is NOT a guaranteed screen-space
     neighbour there. One definition, one instruction, and the cartesian Laplacian
     is the point; polar-neighbour sugar can come later if it earns its place.
+27. **Bitwise helpers are named functions, not operators.** `^` stays `pow()` (it has
+    meant that since v1 and formulas depend on it), so xor is `bxor`; the tokenizer
+    is untouched. Details: `precision highp int;` is now declared because fragment
+    shaders default to *mediump* int (16-bit), too narrow for the pixel index.
+    `fl_i()` converts float→int by wrapping into the signed 32-bit range rather than
+    saturating — that matches bytebeat's integer overflow and avoids the undefined
+    behaviour of out-of-range float→int. `shr` is an arithmetic (sign-extending)
+    shift on signed int; in practice operands are non-negative, where arithmetic and
+    logical agree. Shift amounts are clamped to 0..31 (GLSL leaves the rest
+    undefined). Known limit, documented rather than hidden: a float has no exact
+    integer low bits above 2^24, so huge intermediate products give coarse banding
+    instead of fine bit texture — keep operands small.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

@@ -39,6 +39,23 @@ describe('glsl: expression emission', () => {
     expect(expr('length(x, y)')).toBe('length(vec2(x, y))');
   });
 
+  it('maps the bitwise helpers to fl_* and does the int work in GLSL', () => {
+    expect(expr('band(i, 46.0)')).toBe('fl_band(i, 46.0)');
+    expect(expr('bor(i, 1.0)')).toBe('fl_bor(i, 1.0)');
+    expect(expr('bxor(i, 255.0)')).toBe('fl_bxor(i, 255.0)');
+    expect(expr('shl(i, 3.0)')).toBe('fl_shl(i, 3.0)');
+    expect(expr('shr(i, 8.0)')).toBe('fl_shr(i, 8.0)');
+    expect(expr('bnot(i)')).toBe('fl_bnot(i)');
+
+    const { fragmentSource } = transpile(parse('band(i, 46.0)'));
+    // fragment shaders default to mediump int — too narrow for a pixel index
+    expect(fragmentSource).toContain('precision highp int;');
+    expect(fragmentSource).toContain('float fl_band(float a, float b) { return float(fl_i(a) & fl_i(b)); }');
+    expect(fragmentSource).toContain('int fl_i(float v)');
+    // shift amounts are clamped: GLSL leaves 32+ undefined
+    expect(fragmentSource).toContain('int(clamp(b, 0.0, 31.0))');
+  });
+
   it('maps iterated maps and fold to prefixed GLSL helpers', () => {
     expect(expr('julia(x, y, 0.3, 0.5, 32.0)')).toBe('fl_julia(x, y, 0.3, 0.5, 32.0)');
     expect(expr('ship(x, y, 0.3, 0.5, 24.0)')).toBe('fl_ship(x, y, 0.3, 0.5, 24.0)');

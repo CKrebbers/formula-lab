@@ -2,6 +2,20 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-09-01 — dx/dy + bitwise helpers
+
+**status:** two language additions. `dx`/`dy` are variables holding one screen
+pixel in the pre-remap uv space, derived per fragment (ADR #26) — neighbour
+sampling and derivatives are now expressible. `band/bor/bxor/shl/shr/bnot` do
+integer work on floats (`^` still means pow, so xor is `bxor`); shader now
+declares `precision highp int` because fragment default is mediump/16-bit
+(ADR #27). New family bit.bytebeat_pixel, picked by rendering five candidates
+and comparing §7 stats rather than guessing. 211 tests.
+
+Note for the next session: `prev(x + dx, y) - prev(x - dx, y)` on its own is
+flat mid-grey and that is correct — the derivative of a uniform buffer is zero
+and the buffer starts black. A prev-derivative needs a source term.
+
 ## 2026-09-01 — prev(x, y): the image feeds on itself (roadmap D2, first half)
 
 **status:** every pixel was a pure f(x, y, t) with no memory; it now has one.

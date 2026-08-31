@@ -17,6 +17,7 @@ import iterJulia from './iter-julia.js';
 import iterShip from './iter-ship.js';
 import iterKaliset from './iter-kaliset.js';
 import iterOrbit from './iter-orbit.js';
+import bitBytebeat from './bit-bytebeat.js';
 
 export const FAMILIES = [
   fieldTrig,
@@ -33,6 +34,7 @@ export const FAMILIES = [
   iterShip,
   iterKaliset,
   iterOrbit,
+  bitBytebeat,
 ];
 
 export function getFamily(id) {

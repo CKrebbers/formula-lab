@@ -35,6 +35,9 @@ export const FUNCTIONS = {
   julia: [5], ship: [5], kali: [5], orbit: [5],
   // previous frame (feedback buffer) — luminance at formula coords
   prev: [2],
+  // bitwise on integers (floats in, floats out) — bytebeat / pixel logic.
+  // '^' stays pow(), so xor is spelled bxor.
+  band: [2], bor: [2], bxor: [2], shl: [2], shr: [2], bnot: [1],
   // fold(v) = abs(mod(v,2)-1) — was reserved in §5, now real
   fold: [1],
   // output constructors

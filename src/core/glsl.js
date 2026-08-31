@@ -108,6 +108,12 @@ function emitCall(node, isTopLevel) {
     case 'orbit':
     case 'fold':
     case 'prev':
+    case 'band':
+    case 'bor':
+    case 'bxor':
+    case 'shl':
+    case 'shr':
+    case 'bnot':
       return `fl_${node.name}(${args.join(', ')})`;
     default:
       return `${node.name}(${args.join(', ')})`;
@@ -206,6 +212,24 @@ float fl_worley(vec2 p) {
 float fl_fold(float v) {
   return abs(mod(v, 2.0) - 1.0);
 }
+
+// Bitwise / bytebeat helpers. float in, float out; the integer work happens
+// inside. fl_i wraps into the signed 32-bit range the way bytebeat's integer
+// overflow does — out-of-range float→int is undefined in GLSL ES 3.0, so the
+// wrap keeps it defined too. Note a float has no exact integer low bits above
+// 2^24: keep operands small if you want fine bit texture. (ADR #27)
+int fl_i(float v) {
+  float w = mod(v, 4294967296.0);
+  return int(w >= 2147483648.0 ? w - 4294967296.0 : w);
+}
+
+float fl_band(float a, float b) { return float(fl_i(a) & fl_i(b)); }
+float fl_bor(float a, float b)  { return float(fl_i(a) | fl_i(b)); }
+float fl_bxor(float a, float b) { return float(fl_i(a) ^ fl_i(b)); }
+float fl_bnot(float a)          { return float(~fl_i(a)); }
+// shift amount clamped to 0..31: outside that GLSL leaves the result undefined
+float fl_shl(float a, float b)  { return float(fl_i(a) << int(clamp(b, 0.0, 31.0))); }
+float fl_shr(float a, float b)  { return float(fl_i(a) >> int(clamp(b, 0.0, 31.0))); }
 
 // Iterated maps — the pattern-breakers. n is a runtime float like fbm's
 // octaves: capped loops with early break. All return roughly 0..1.
@@ -348,6 +372,8 @@ export function transpile(ast) {
 
   const fragmentSource = `#version 300 es
 precision highp float;
+precision highp int; // fragment shaders default to mediump int (16-bit): too
+                     // narrow for the pixel index and the bitwise helpers
 
 uniform float u_time;
 uniform vec2 u_resolution;

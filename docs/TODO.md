@@ -12,6 +12,9 @@ palettes + tone mapping ✓. Ordered by agreed priority; sizes are sessions.
    use them automatically (arity-5 func_swap group).
 2. ~~Prompt strategy rotation~~ ✓ SHIPPED 2026-08-31: 10 mandatory distinct
    strategies per pack, iterated-fractal strategies included.
+2b. ~~dx/dy pixel step + bitwise helpers~~ ✓ SHIPPED 2026-09-01 (ADR #26/#27,
+   family bit.bytebeat_pixel). Deliberately NOT done: `lap()` sugar, `in1..in4`,
+   `s_ent`/`s_sym`.
 3. **⏸ USE IT** — a full evening of real play (v1/v2 DoD are usage-based;
    archive needs to grow past ~10 snapshots). The friction list from that
    evening reorders everything below. ← YOU ARE HERE
