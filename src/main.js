@@ -30,6 +30,7 @@ import { ModsPanel } from './ui/mods.js';
 import { substituteParams } from './core/constants.js';
 import { print } from './core/print.js';
 import { lhsParamSets, randomExpr } from './search/sample.js';
+import { AudioEngine } from './audio/engine.js';
 
 const VIEW = new URLSearchParams(location.search).get('view');
 if (VIEW === 'display') {
@@ -64,6 +65,7 @@ function initPanel() {
   const elites = new ElitesGrid(localStorage);
   const sync = new SyncChannel();
   const modStack = new ModStack();
+  const audioEngine = new AudioEngine();
 
   const sliders = new SliderPanel(el('sliders'), (name, value) => {
     state.params[name] = value;
@@ -334,12 +336,15 @@ function initPanel() {
       locks: sliders.locks,
       coords: COORD_NAMES[state.coords],
     });
-    history.replaceState(null, '', hash);
+    // never leave the hash in the address bar — it would defeat the random
+    // start on the next reload (a pasted link still loads once, then strips)
+    const url = location.origin + location.pathname + location.search + hash;
     try {
-      await navigator.clipboard.writeText(location.href);
+      await navigator.clipboard.writeText(url);
       updateStatus(' · link copied');
     } catch {
-      updateStatus(' · link in URL bar');
+      history.replaceState(null, '', hash); // fallback: copy it from the URL bar
+      updateStatus(' · link in URL bar (copy it, then reload strips it)');
     }
   }
 
@@ -375,6 +380,29 @@ function initPanel() {
     modsPanel.refresh();
   });
   modStack.set('glitch', 'amount', parseFloat(el('chaos').value));
+
+  function setAudioButtons(activeId) {
+    for (const id of ['audio-tab', 'audio-mic']) {
+      el(id).classList.toggle('active', id === activeId);
+    }
+  }
+  audioEngine.onStopped = () => setAudioButtons(null);
+  async function toggleAudio(id, starter) {
+    if (el(id).classList.contains('active')) {
+      audioEngine.stop();
+      return;
+    }
+    try {
+      await starter();
+      setAudioButtons(id);
+      updateStatus(' · ♪ listening — set a slider to ♪b/♪m/♪h and raise depth');
+    } catch (err) {
+      setAudioButtons(null);
+      updateStatus(` · audio: ${err.message}`);
+    }
+  }
+  el('audio-tab').addEventListener('click', () => toggleAudio('audio-tab', () => audioEngine.startTab()));
+  el('audio-mic').addEventListener('click', () => toggleAudio('audio-mic', () => audioEngine.startMic()));
   el('reroll-all').addEventListener('click', () => sliders.rerollAll());
   el('coords').addEventListener('click', () => setCoords((state.coords + 1) % COORDS.length));
   el('make-sheet').addEventListener('click', () =>
@@ -454,6 +482,8 @@ function initPanel() {
   if (fromUrl) {
     textarea.value = fromUrl.source;
     editor.apply();
+    // consume the permalink: strip it so the NEXT load starts fresh again
+    history.replaceState(null, '', location.pathname + location.search);
   } else {
     randomStart();
   }
@@ -472,7 +502,7 @@ function initPanel() {
   let lastSentCoords = null;
   function frame(now) {
     state.time = (now - start) / 1000;
-    sliders.tick(state.time);
+    sliders.tick(state.time, audioEngine.tick(state.time));
     // modulators are a render-time overlay: base params stay clean
     const g = modStack.tick(state.time, state.params, sliders.ranges());
     const renderState = g.modulating

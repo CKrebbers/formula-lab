@@ -2,7 +2,7 @@
 // and automation (LFO). Slider moves only touch uniforms — never a recompile.
 
 import { inferRange, reroll } from '../core/constants.js';
-import { createAutomation, evaluate, nextMode, glideValue, MODE_ICONS } from '../core/automate.js';
+import { createAutomation, evaluate, nextMode, glideValue, MODE_ICONS, AUDIO_MODES } from '../core/automate.js';
 
 const GLIDE_SECONDS = 0.5; // discrete changes ease in — no visual jumps
 
@@ -80,7 +80,8 @@ export class SliderPanel {
     const depth = miniRange(0, 1, 0.01, auto.depth, 'depth (fraction of range)');
     rate.addEventListener('input', () => { auto.rate = parseFloat(rate.value); });
     depth.addEventListener('input', () => { auto.depth = parseFloat(depth.value); });
-    autoRow.append(miniLabel('rate'), rate, miniLabel('depth'), depth);
+    const rateLabel = miniLabel('rate');
+    autoRow.append(rateLabel, rate, miniLabel('depth'), depth);
 
     slider.addEventListener('input', () => {
       delete this.glides[name]; // dragging takes over: direct, no easing lag
@@ -96,6 +97,11 @@ export class SliderPanel {
       autoBtn.textContent = MODE_ICONS[auto.mode];
       autoRow.hidden = auto.mode === 'off';
       row.classList.toggle('automated', auto.mode !== 'off');
+      const isAudio = AUDIO_MODES.includes(auto.mode);
+      rateLabel.textContent = isAudio ? 'r↔h' : 'rate';
+      rate.title = isAudio
+        ? 'focus: left = hardness (loudness level), right = rhythm (beat pulses)'
+        : 'rate (Hz)';
       if (auto.mode === 'off') {
         // settle back on the center so the param doesn't freeze mid-swing
         slider.value = auto.center;
@@ -182,8 +188,12 @@ export class SliderPanel {
     }
   }
 
-  /** Advance glides + automation; call once per frame with time in seconds. */
-  tick(t) {
+  /**
+   * Advance glides + automation; call once per frame.
+   * @param {number} t seconds
+   * @param {object|null} [audio] live audio frame for ♪ modes (engine.tick())
+   */
+  tick(t, audio = null) {
     this.lastT = t;
 
     for (const [name, glide] of Object.entries(this.glides)) {
@@ -205,7 +215,7 @@ export class SliderPanel {
     for (const [name, auto] of Object.entries(this.autos)) {
       if (auto.mode === 'off' || this.locks[name]) continue;
       const { slider, readout, range } = this.rows[name];
-      const v = evaluate(auto, range, t);
+      const v = evaluate(auto, range, t, audio);
       slider.value = v;
       readout.textContent = formatValue(v);
       this.onChange(name, v);

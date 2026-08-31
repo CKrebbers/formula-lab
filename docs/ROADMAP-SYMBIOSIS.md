@@ -189,5 +189,10 @@ mutation, crossover and the archive already understand.
 | D5 | Meta-formulas | D1 | 1 session |
 
 Deliberately NOT in this roadmap: cloud/WAN sync, accounts, native apps,
-WebRTC (relay is simpler and LAN is the venue), audio-reactivity (queued
-separately — it enters through the same `input` bus when it comes).
+WebRTC (relay is simpler and LAN is the venue).
+
+UPDATE 2026-08-31: audio-reactivity SHIPPED exactly per the combination model:
+tab-share / mic capture (audio/engine.js), pure DSP (audio/analysis.js —
+band levels with 30ms attack / 350ms release, spectral-flux beat pulses),
+surfaced as per-slider automation modes ♪b/♪m/♪h where rate becomes the
+rhythm↔hardness focus morph and depth stays the how-much-you-hand-over knob.

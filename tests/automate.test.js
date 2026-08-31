@@ -8,15 +8,14 @@ function auto(overrides) {
 }
 
 describe('automate: modes', () => {
-  it('cycles off → sine → tri → walk → off', () => {
+  it('cycles off → sine → tri → walk → bass → mid → high → off', () => {
     let mode = 'off';
     const seen = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 7; i++) {
       mode = nextMode(mode);
       seen.push(mode);
     }
-    expect(seen).toEqual(['sine', 'tri', 'walk', 'off']);
-    expect(MODES).toContain('walk');
+    expect(seen).toEqual(['sine', 'tri', 'walk', 'bass', 'mid', 'high', 'off']);
   });
 
   it('de-syncs phases per param index', () => {

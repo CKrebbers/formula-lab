@@ -110,3 +110,15 @@ formulas. 171 tests green.
 
 **besluit:** the rack is the future home of audio bands, remote inputs and
 gesture playback (roadmap). Next: D1 input vars or B1 cue/take.
+
+## 2026-08-31 — Session 1 (audio reactivity + random-start fix)
+
+**status:** audio capture (♪tab = share a Chrome tab with audio — macOS way to
+system sound; ♪mic = mic/BlackHole) → pure DSP (bass/mid/high levels with
+asymmetric envelopes + spectral-flux beat pulses) → per-slider automation
+modes ♪b/♪m/♪h. Rate knob morphs to r↔h (focus: hardness ↔ rhythm), depth =
+amount; silence sits exactly on center. Fixed random start: permalink hash is
+consumed-then-stripped, and 'link' copies without touching the URL. 179 tests.
+
+**besluit:** every param×band×focus combination is now an experiment, as
+intended. Real-music tuning of envelope constants is Clay's ear-work.

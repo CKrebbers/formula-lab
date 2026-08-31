@@ -3,9 +3,14 @@
 // of the slider range, rate is in Hz. 'walk' is a deterministic pseudo-random
 // drift (layered incommensurate sines), so it needs no RNG state.
 
-export const MODES = ['off', 'sine', 'tri', 'walk'];
+export const MODES = ['off', 'sine', 'tri', 'walk', 'bass', 'mid', 'high'];
 
-export const MODE_ICONS = { off: '·', sine: '∿', tri: '△', walk: '≈' };
+export const AUDIO_MODES = ['bass', 'mid', 'high'];
+
+export const MODE_ICONS = {
+  off: '·', sine: '∿', tri: '△', walk: '≈',
+  bass: '♪b', mid: '♪m', high: '♪h',
+};
 
 export function nextMode(mode) {
   return MODES[(MODES.indexOf(mode) + 1) % MODES.length];
@@ -53,12 +58,26 @@ export function glideValue(from, to, elapsed, duration) {
 
 /**
  * Value of an automated param at time t (seconds), clamped to the slider range.
+ * Audio modes (bass/mid/high) read the live audio frame instead of a wave:
+ * the rate knob becomes the FOCUS morph (0 = hardness/level, 2 = rhythm/beat
+ * pulse) and the signal pushes upward from the center (silence = center).
  * @param {{mode: string, rate: number, depth: number, phase: number, center: number}} auto
  * @param {{min: number, max: number}} range
+ * @param {number} t
+ * @param {{bass: {level, pulse}, mid: {level, pulse}, high: {level, pulse}} | null} [audio]
  */
-export function evaluate(auto, range, t) {
+export function evaluate(auto, range, t, audio = null) {
   if (auto.mode === 'off') return auto.center;
   const amp = auto.depth * (range.max - range.min) / 2;
-  const v = auto.center + amp * wave(auto.mode, t * auto.rate + auto.phase);
+  let v;
+  if (AUDIO_MODES.includes(auto.mode)) {
+    const band = audio?.[auto.mode];
+    if (!band) return auto.center;
+    const focus = Math.min(1, Math.max(0, auto.rate / 2));
+    const signal = band.level * (1 - focus) + band.pulse * focus;
+    v = auto.center + amp * signal;
+  } else {
+    v = auto.center + amp * wave(auto.mode, t * auto.rate + auto.phase);
+  }
   return Math.min(range.max, Math.max(range.min, v));
 }
