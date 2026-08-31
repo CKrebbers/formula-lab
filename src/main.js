@@ -8,8 +8,8 @@ import { extractParams } from './core/constants.js';
 import { Renderer } from './render/gl.js';
 import { TileRenderer } from './render/tile.js';
 import { HistCache } from './render/thumbs.js';
-import { computeStats, averageStats } from './search/filter.js';
-import { noveltyOf } from './search/novelty.js';
+import { computeStats, averageStats, shouldReject } from './search/filter.js';
+import { noveltyOf, luminanceHistogram } from './search/novelty.js';
 import { initEditor } from './ui/editor.js';
 import { SliderPanel } from './ui/sliders.js';
 import { ContactSheet } from './ui/sheet.js';
@@ -19,6 +19,10 @@ import { initFamilyPicker } from './ui/families.js';
 import { Archive } from './store/archive.js';
 import { createSnapshot, COORD_NAMES } from './store/snapshot.js';
 import { encodePermalink, decodePermalink } from './store/url.js';
+import { ElitesGrid } from './search/elites.js';
+import { Explorer } from './search/explore.js';
+import { ElitesPanel } from './ui/elites.js';
+import { FAMILIES } from './families/index.js';
 
 const DEFAULT_FORMULA = 'sin(x * y * 4.0 + t) + cos(3.0 * x + t * 0.7)';
 const COORDS = ['cart', 'polar', 'torus'];
@@ -42,6 +46,7 @@ const renderer = new Renderer(canvas);
 const tileRenderer = new TileRenderer(128);
 const archive = new Archive(localStorage);
 const histCache = new HistCache();
+const elites = new ElitesGrid(localStorage);
 
 const sliders = new SliderPanel(el('sliders'), (name, value) => {
   state.params[name] = value;
@@ -191,6 +196,109 @@ async function mutateSheet(partnerAst = null) {
   updateStatus(` · ${shown}/${tried} passed the filter`);
 }
 
+// --- zero-player auto-explore (v3) ----------------------------------------
+
+const elitesPanel = new ElitesPanel(el('elites'), (snap) => {
+  stopAuto();
+  loadSnapshot(snap); // elites aren't in the archive, but load fine; save = keep
+});
+
+/**
+ * Compile + render a candidate, run the §7 filter, score novelty against
+ * archive + grid. Returns null on any failure; always restores the shader.
+ */
+async function evaluateCandidate({ source, coords }) {
+  try {
+    const parsed = parse(source);
+    const { ast, params } = extractParams(parsed);
+    const compiled = transpile(ast);
+    tileRenderer.setShader(compiled.fragmentSource, compiled.paramNames);
+    const coordsIdx = Math.max(0, COORD_NAMES.indexOf(coords));
+    const candState = { time: 0, mouse: [0, 0], coords: coordsIdx, params };
+
+    const s0 = tileRenderer.readStats(candState);
+    const s1 = tileRenderer.readStats({ ...candState, time: 1 });
+    const stats = averageStats(
+      computeStats(s0.pixels, s0.width, s0.height),
+      computeStats(s1.pixels, s1.width, s1.height)
+    );
+    if (shouldReject(stats).rejected) return null;
+
+    const thumb = tileRenderer.thumbnail({ ...candState, time: 1 });
+    const disp = tileRenderer.renderer.readPixels();
+    const hist = luminanceHistogram(disp.pixels, disp.width, disp.height);
+    const pool = (await histCache.forSnapshots(
+      [...archive.list(), ...elites.all().map((e) => e.snapshot)]
+    )).filter(Boolean);
+    return { stats, thumb, novelty: noveltyOf(hist, pool), ast: parsed, params };
+  } catch {
+    return null;
+  } finally {
+    if (currentShader) tileRenderer.setShader(currentShader.fragmentSource, currentShader.paramNames);
+  }
+}
+
+const explorer = new Explorer({ families: FAMILIES, evaluate: evaluateCandidate });
+let autoTimer = null;
+let autoBusy = false;
+
+async function autoStep() {
+  if (autoBusy) return;
+  autoBusy = true;
+  try {
+    const result = await explorer.step({
+      elites,
+      fallbackSource: textarea.value,
+      fallbackCoords: COORD_NAMES[state.coords],
+    });
+    if (result.accepted) {
+      const snap = createSnapshot({
+        source: result.source,
+        ast: JSON.parse(serialize(result.ast)),
+        params: result.params,
+        coords: result.coords,
+        thumb: result.thumb,
+        origin: result.origin,
+        operator: result.operator,
+        family: result.family ?? null,
+        parent_ids: result.parentIds ?? [],
+      });
+      snap.stats = result.stats;
+      const placed = elites.consider(snap, result.novelty);
+      if (placed.placed) {
+        elitesPanel.refresh(elites);
+        // zero-player display: the main view follows every new discovery,
+        // carrying provenance so a manual 'save' keeps origin/lineage
+        textarea.value = snap.formula.source;
+        editor.apply();
+        setCoords(Math.max(0, COORD_NAMES.indexOf(snap.coords)));
+        pendingOrigin = snap.origin;
+        pendingOperator = snap.operator;
+        currentFamily = snap.family;
+        currentParentIds = [snap.id];
+      }
+    }
+    updateStatus(` · auto: ${elites.count()}/100 cells · ${explorer.found}/${explorer.tried} passed`);
+  } finally {
+    autoBusy = false;
+  }
+}
+
+function startAuto() {
+  if (autoTimer) return;
+  autoTimer = setInterval(autoStep, 900);
+  el('auto').classList.add('active');
+  autoStep();
+}
+
+function stopAuto() {
+  if (!autoTimer) return;
+  clearInterval(autoTimer);
+  autoTimer = null;
+  el('auto').classList.remove('active');
+  updateStatus();
+}
+
 function downloadArchive() {
   const blob = new Blob([archive.exportJSON()], { type: 'application/json' });
   const a = document.createElement('a');
@@ -220,11 +328,13 @@ const editor = initEditor(textarea, el('error'), applyFormula);
 initFamilyPicker(el('family'), loadFamily);
 
 textarea.addEventListener('input', () => {
+  stopAuto(); // typing takes the controls back from the zero-player
   currentFamily = null;
   pendingOrigin = null;
   pendingOperator = null;
 });
 
+el('auto').addEventListener('click', () => (autoTimer ? stopAuto() : startAuto()));
 el('reroll-all').addEventListener('click', () => sliders.rerollAll());
 el('coords').addEventListener('click', () => setCoords((state.coords + 1) % COORDS.length));
 el('make-sheet').addEventListener('click', () =>
@@ -279,6 +389,7 @@ if (fromUrl) {
   setCoords(Math.max(0, COORD_NAMES.indexOf(fromUrl.coords)));
 }
 refreshArchive();
+elitesPanel.refresh(elites);
 
 const start = performance.now();
 function frame(now) {

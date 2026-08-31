@@ -48,3 +48,15 @@ on every save. 143 tests green.
 MAP-Elites-grade auto-explore (that's v3). v2 DoD is now measurable: ≥50 snapshots
 rated ≥4 that Clay didn't type. Audio-reactivity is the natural next build once
 the archive starts filling.
+
+## 2026-08-31 — Session 1 (v3 zero-player)
+
+**status:** Clay asked for algorithmic self-generating infinite visuals = §9 v3
+auto-explore. Shipped: MAP-Elites grid (entropy × symmetry 10×10, persistent,
+novelty-fitness), Explorer with 4 birth strategies (mutate/crossover/family-LHS/
+random birth), 'auto' toggle — main view follows each discovery with provenance,
+click a cell to take over. Verified live: 18 cells and 19/23 filter-passed in ~20s
+on the dev machine. 151 tests green.
+
+**besluit:** v3 remaining: LLM mutator, phase-diagram nav, lineage tree — plus the
+parked attractors + Sprott. Clay's audio/sequence wishes stay queued behind those.

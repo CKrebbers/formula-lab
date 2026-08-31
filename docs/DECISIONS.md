@@ -63,6 +63,15 @@
     promoting keeps the chain; typing by hand resets origin to 'typed' but keeps the
     parent link. Rating lives on the loaded snapshot via the lineage strip (click the
     current star again to clear).
+21. **v3 auto-explore ("zero-player") started on request, ahead of the v2 DoD** — Clay
+    asked for algorithmic, self-generating, infinite visuals; that IS §9 v3's
+    auto-explore + MAP-Elites, so built in phase order. Deviations from §9 v3: cell
+    fitness = novelty-at-insert instead of "highest-rated" (machine finds are unrated;
+    the archive stays the human-curated layer), and the LLM mutator is not part of this
+    step. Strategy mix per step: mutate elite 55% / crossover 20% / family LHS-reroll
+    15% / random birth 10% (cold start: family 40 / birth 30 / mutate 30). Tick = 900ms,
+    gentle on the 2014 GPU. Elites persist in their own localStorage key; the main view
+    follows every discovery while auto is on; typing or picking a cell hands control back.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate
