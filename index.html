@@ -71,7 +71,12 @@
     .lineage-row img:hover { border-color: #fafbf6; }
     #auto.active { border-color: #8be9b6; color: #8be9b6; }
     body.display #panel { display: none; }
-    body.display #canvas { cursor: none; }
+    body.display .display-layer {
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      cursor: none; image-rendering: pixelated;
+      transition: opacity 0.9s ease;
+    }
+    body.display #status { z-index: 1000; }
     .elites-label { font-size: 10px; color: #565a75; padding: 2px 0; }
     .elites-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 1px; }
     .elite-cell {

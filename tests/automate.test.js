@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MODES, nextMode, createAutomation, evaluate } from '../src/core/automate.js';
+import { MODES, nextMode, createAutomation, evaluate, glideValue } from '../src/core/automate.js';
 
 const RANGE = { min: -2, max: 6 };
 
@@ -63,5 +63,24 @@ describe('automate: evaluate', () => {
   it('walk is deterministic', () => {
     const a = auto({ mode: 'walk' });
     expect(evaluate(a, RANGE, 3.21)).toBe(evaluate({ ...a }, RANGE, 3.21));
+  });
+});
+
+describe('automate: glideValue', () => {
+  it('starts at from, ends at to, monotonic ease between', () => {
+    expect(glideValue(1, 5, 0, 0.5)).toBe(1);
+    expect(glideValue(1, 5, 0.25, 0.5)).toBeCloseTo(3, 10); // smoothstep midpoint
+    expect(glideValue(1, 5, 0.5, 0.5)).toBe(5);
+    expect(glideValue(1, 5, 99, 0.5)).toBe(5);
+    let prev = -Infinity;
+    for (let e = 0; e <= 0.5; e += 0.05) {
+      const v = glideValue(1, 5, e, 0.5);
+      expect(v).toBeGreaterThanOrEqual(prev);
+      prev = v;
+    }
+  });
+
+  it('zero duration jumps immediately', () => {
+    expect(glideValue(1, 5, 0, 0)).toBe(5);
   });
 });

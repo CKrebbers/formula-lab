@@ -2,7 +2,9 @@
 // and automation (LFO). Slider moves only touch uniforms — never a recompile.
 
 import { inferRange, reroll } from '../core/constants.js';
-import { createAutomation, evaluate, nextMode, MODE_ICONS } from '../core/automate.js';
+import { createAutomation, evaluate, nextMode, glideValue, MODE_ICONS } from '../core/automate.js';
+
+const GLIDE_SECONDS = 0.5; // discrete changes ease in — no visual jumps
 
 export class SliderPanel {
   /**
@@ -15,6 +17,8 @@ export class SliderPanel {
     this.locks = {};
     this.rows = {};
     this.autos = {};
+    this.glides = {};
+    this.lastT = 0;
   }
 
   /** Rebuild the panel for a new set of params (locks & automation reset). */
@@ -23,6 +27,7 @@ export class SliderPanel {
     this.locks = {};
     this.rows = {};
     this.autos = {};
+    this.glides = {};
     Object.entries(params).forEach(([name, value], index) => {
       this.locks[name] = false;
       this.autos[name] = createAutomation(value, index);
@@ -78,6 +83,7 @@ export class SliderPanel {
     autoRow.append(miniLabel('rate'), rate, miniLabel('depth'), depth);
 
     slider.addEventListener('input', () => {
+      delete this.glides[name]; // dragging takes over: direct, no easing lag
       const v = parseFloat(slider.value);
       auto.center = v; // manual position is the automation's center
       readout.textContent = formatValue(v);
@@ -125,13 +131,40 @@ export class SliderPanel {
     }
   }
 
-  /** Set a param from code (reroll etc.): updates UI, center and uniform. */
-  setValue(name, v) {
-    const { slider, readout } = this.rows[name];
-    slider.value = v;
-    readout.textContent = formatValue(v);
-    this.autos[name].center = v;
-    this.onChange(name, v);
+  /**
+   * Set a param from code (reroll, promote, snapshot load). Glides to the
+   * target over GLIDE_SECONDS by default — no visual jumps.
+   */
+  setValue(name, v, { smooth = true } = {}) {
+    const row = this.rows[name];
+    if (!row) return;
+    if (!smooth) {
+      delete this.glides[name];
+      row.slider.value = v;
+      row.readout.textContent = formatValue(v);
+      this.autos[name].center = v;
+      this.onChange(name, v);
+      return;
+    }
+    this.glides[name] = {
+      from: parseFloat(row.slider.value),
+      to: v,
+      start: this.lastT,
+      duration: GLIDE_SECONDS,
+    };
+  }
+
+  /**
+   * Where every param is HEADING (glide targets, not in-between values).
+   * Snapshots, permalinks and mutation use this so a save mid-glide
+   * captures intent, not a transition frame.
+   */
+  targetParams() {
+    const out = {};
+    for (const [name, { slider }] of Object.entries(this.rows)) {
+      out[name] = this.glides[name] ? this.glides[name].to : parseFloat(slider.value);
+    }
+    return out;
   }
 
   /** Reroll every unlocked param at once. */
@@ -142,8 +175,26 @@ export class SliderPanel {
     }
   }
 
-  /** Advance automation; call once per frame with time in seconds. */
+  /** Advance glides + automation; call once per frame with time in seconds. */
   tick(t) {
+    this.lastT = t;
+
+    for (const [name, glide] of Object.entries(this.glides)) {
+      const row = this.rows[name];
+      if (!row) {
+        delete this.glides[name];
+        continue;
+      }
+      const v = glideValue(glide.from, glide.to, t - glide.start, glide.duration);
+      this.autos[name].center = v; // an active LFO orbits the moving center
+      if (this.autos[name].mode === 'off' || this.locks[name]) {
+        row.slider.value = v;
+        row.readout.textContent = formatValue(v);
+        this.onChange(name, v);
+      }
+      if (t - glide.start >= glide.duration) delete this.glides[name];
+    }
+
     for (const [name, auto] of Object.entries(this.autos)) {
       if (auto.mode === 'off' || this.locks[name]) continue;
       const { slider, readout, range } = this.rows[name];

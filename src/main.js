@@ -154,7 +154,7 @@ function initPanel() {
     const snapshot = createSnapshot({
       source: textarea.value,
       ast: JSON.parse(serialize(lastAst)),
-      params: state.params,
+      params: sliders.targetParams(), // glide targets, not transition frames
       locks: sliders.locks,
       coords: COORD_NAMES[state.coords],
       time: state.time,
@@ -202,7 +202,7 @@ function initPanel() {
     const { shown, tried } = sheet.generateMutations({
       tileRenderer,
       ast: currentParamAst,
-      params: state.params,
+      params: sliders.targetParams(),
       locks: sliders.locks,
       state,
       mask: el('mask').value,
@@ -324,7 +324,7 @@ function initPanel() {
   async function copyPermalink() {
     const hash = encodePermalink({
       source: textarea.value,
-      params: state.params,
+      params: sliders.targetParams(),
       locks: sliders.locks,
       coords: COORD_NAMES[state.coords],
     });
@@ -355,7 +355,7 @@ function initPanel() {
   el('reroll-all').addEventListener('click', () => sliders.rerollAll());
   el('coords').addEventListener('click', () => setCoords((state.coords + 1) % COORDS.length));
   el('make-sheet').addEventListener('click', () =>
-    sheet.generateTweak(tileRenderer, state.params, sliders.locks, state));
+    sheet.generateTweak(tileRenderer, sliders.targetParams(), sliders.locks, state));
   el('mutate').addEventListener('click', () => mutateSheet());
   el('xover').addEventListener('click', () => {
     const pool = archive.list();

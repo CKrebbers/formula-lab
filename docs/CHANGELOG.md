@@ -73,3 +73,16 @@ any-device + MIDI / D input-is-output symbiosis, with session-sized steps).
 
 **besluit:** next per roadmap: D1 (live input vars in1..in4 + routing table) —
 highest leverage, smallest step. Then B1 cue/take.
+
+## 2026-08-31 — Session 1 (B0: smoothness)
+
+**status:** Clay: param changes jump and break the experience. Shipped B0:
+param glide (0.5s smoothstep on every discrete change; dragging stays direct;
+LFOs orbit the moving center; saves read glide targets) + display crossfade
+(0.9s two-canvas fade on every formula swap, zero-player included). Roadmap
+gained the audio×auto×human combination model (timescale hierarchy: genotype /
+center / orbit; audio as enveloped automation source; beats as events).
+157 tests green; glide verified live (reroll eased 0.637 → -1.436 over 6 frames).
+
+**besluit:** audio lands later as an automation mode per the combination model —
+through the same center±depth lens, with attack/release smoothing.

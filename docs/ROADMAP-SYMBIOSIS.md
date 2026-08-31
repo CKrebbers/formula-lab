@@ -27,6 +27,46 @@ live set, and no phase starts before the previous one has actually been used.**
   single-file `dist/index.html` from `file://` may isolate windows — use the
   dev server or a `python3 -m http.server` for multi-window).
 
+## Phase B0 — Everything moves smoothly (SHIPPED 2026-08-31)
+
+Jarring parameter jumps break the experience (Clay, 2026-08-31). Two layers:
+
+- **Param glide**: every discrete change — reroll, sheet promote, snapshot
+  load — eases over 0.5s (smoothstep). Manual dragging stays direct and
+  cancels a running glide; an active LFO orbits the *moving* center, so even
+  automated params transition smoothly. Saves/permalinks/mutation read glide
+  TARGETS, never transition frames.
+- **Display crossfade**: formula swaps (the only true hard cut — incl. every
+  zero-player discovery) crossfade ~0.9s between two stacked canvases on the
+  display. The panel preview keeps hard cuts on purpose (it's the lab; you
+  want to see exactly what you have).
+
+## The combination model: audio × auto × human (design principle)
+
+These three never fight because they live on different timescales and
+different layers of the same param:
+
+| Layer | Who | Timescale | What it touches |
+|-------|-----|-----------|-----------------|
+| Genotype | zero-player (auto) | tens of seconds | WHICH formula plays |
+| Center | human (slider, XY pad, macro) | seconds | where a param sits |
+| Orbit | LFO / audio band / remote input | 10ms–1s | breathing AROUND the center |
+
+Rules that make it symbiotic instead of chaotic:
+1. Audio is an **automation source**, not a param writer: per slider, mode
+   off/sine/tri/walk/**audio-band**, always through center ± depth. Human
+   keeps the center; audio only breathes around it. Depth = how much you
+   hand over.
+2. Audio gets **envelope smoothing** (fast attack ~50ms, slow release
+   ~300ms) before it touches anything — raw FFT jitter is the audio version
+   of the param-jump problem B0 just fixed.
+3. Beats are **events**, not values: onset detection triggers discrete acts
+   (advance cue, reroll one unlocked param, TAKE) — and those acts glide/
+   crossfade like every other discrete act (B0), so even beat-hits stay
+   fluid. Optionally quantize zero-player swaps to bars (needs tap-tempo B4).
+4. The zero-player only ever changes the genotype — via the crossfade —
+   and yields when a human touches anything (already the case).
+
 ## Phase B — The panel becomes an instrument (1–2 sessions)
 
 The panel today is a *lab*. For live use it needs a *performance* face:

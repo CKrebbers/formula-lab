@@ -39,6 +39,17 @@ function wave(mode, x) {
 }
 
 /**
+ * Ease-in-out glide between two values — every discrete param change
+ * (reroll, promote, snapshot load) moves smoothly instead of jumping.
+ */
+export function glideValue(from, to, elapsed, duration) {
+  if (duration <= 0 || elapsed >= duration) return to;
+  const k = Math.max(0, elapsed / duration);
+  const s = k * k * (3 - 2 * k); // smoothstep
+  return from + (to - from) * s;
+}
+
+/**
  * Value of an automated param at time t (seconds), clamped to the slider range.
  * @param {{mode: string, rate: number, depth: number, phase: number, center: number}} auto
  * @param {{min: number, max: number}} range
