@@ -10,6 +10,7 @@ export class GlitchEngine {
     this.rng = rng;
     this.active = false;
     this.chaos = 0.3;
+    this.rate = 1; // burst-frequency multiplier (0..2)
     this.burst = null;
     this.lastT = 0;
   }
@@ -17,6 +18,7 @@ export class GlitchEngine {
   start() { this.active = true; }
   stop() { this.active = false; this.burst = null; }
   setChaos(c) { this.chaos = Math.min(1, Math.max(0, c)); }
+  setRate(r) { this.rate = Math.min(2, Math.max(0, r)); }
 
   /**
    * Per-frame overlay.
@@ -37,8 +39,8 @@ export class GlitchEngine {
     if (this.burst && t >= this.burst.until) this.burst = null; // snap back
 
     if (!this.burst) {
-      // Poisson-ish onset: at chaos 0.5 roughly one burst every ~1.7s
-      const chance = this.chaos * 1.2 * dt;
+      // Poisson-ish onset: at chaos 0.5, rate 1, roughly one burst every ~1.3s
+      const chance = this.chaos * 1.2 * dt * (0.3 + this.rate);
       if (this.rng() >= chance) return clean;
       this.burst = this.makeBurst(t, baseParams, ranges);
     }

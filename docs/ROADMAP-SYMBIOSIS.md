@@ -67,6 +67,19 @@ Rules that make it symbiotic instead of chaotic:
 4. The zero-player only ever changes the genotype — via the crossfade —
    and yields when a human touches anything (already the case).
 
+## Phase B-partial — Modulator rack (SHIPPED 2026-08-31)
+
+The glitch idea generalized: `core/modulators.js` is a stack of algorithmic
+parameter manipulators, each a render-time overlay with on/off + amount +
+rate, composable via the `mods` panel (the "second settings screen"):
+drift (slow wander), chase (glides to fresh random targets), pulse
+(synchronized breathing), shuffle (two params trade values and return),
+gl!tch (tears, by design). Smooth mods fade in/out over 0.8s so toggling
+never jumps; base params/saves never move. Startup is also randomized now:
+no permalink → a rerolled family (75%) or a random-born formula (25%) —
+every launch begins somewhere completely different. Future modulators
+(audio bands, remote inputs, gesture playback) slot into this same rack.
+
 ## Phase B — The panel becomes an instrument (1–2 sessions)
 
 The panel today is a *lab*. For live use it needs a *performance* face:

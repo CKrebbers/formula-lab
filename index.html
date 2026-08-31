@@ -72,6 +72,13 @@
     #auto.active { border-color: #8be9b6; color: #8be9b6; }
     #glitch.active { border-color: #ff5566; color: #ff5566; }
     #chaos { width: 70px; accent-color: #ff5566; align-self: center; }
+    #mods { display: flex; flex-direction: column; gap: 2px; border: 1px solid #565a75; padding: 6px; }
+    .mods-label { font-size: 10px; color: #565a75; padding-bottom: 2px; }
+    .mod-row { display: flex; align-items: center; gap: 6px; }
+    .mod-row.mod-active .auto-label { color: #8be9b6; }
+    .mod-toggle { width: 64px; }
+    .mod-toggle.active { border-color: #8be9b6; color: #8be9b6; }
+    #mods .mini-range { width: 80px; }
     body.display #panel { display: none; }
     body.display .display-layer {
       position: fixed; inset: 0; width: 100vw; height: 100vh;
@@ -150,7 +157,9 @@
       <button id="glitch" class="slider-btn" title="glitch: random short parameter bursts that snap back">gl!tch</button>
       <input id="chaos" type="range" min="0" max="1" step="0.01" value="0.3"
              title="chaos level: burst frequency, spread and spike size" />
+      <button id="mods-toggle" class="slider-btn" title="modulator rack: algorithmic parameter manipulation">mods</button>
     </div>
+    <div id="mods" hidden></div>
     <div id="actions2">
       <button id="save" class="slider-btn" title="save snapshot to archive">save</button>
       <button id="permalink" class="slider-btn" title="copy permalink URL">link</button>

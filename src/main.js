@@ -25,7 +25,11 @@ import { ElitesPanel } from './ui/elites.js';
 import { FAMILIES } from './families/index.js';
 import { SyncChannel } from './sync/local.js';
 import { initDisplay } from './display.js';
-import { GlitchEngine } from './core/glitch.js';
+import { ModStack } from './core/modulators.js';
+import { ModsPanel } from './ui/mods.js';
+import { substituteParams } from './core/constants.js';
+import { print } from './core/print.js';
+import { lhsParamSets, randomExpr } from './search/sample.js';
 
 const VIEW = new URLSearchParams(location.search).get('view');
 if (VIEW === 'display') {
@@ -59,7 +63,7 @@ function initPanel() {
   const histCache = new HistCache();
   const elites = new ElitesGrid(localStorage);
   const sync = new SyncChannel();
-  const glitch = new GlitchEngine();
+  const modStack = new ModStack();
 
   const sliders = new SliderPanel(el('sliders'), (name, value) => {
     state.params[name] = value;
@@ -354,17 +358,23 @@ function initPanel() {
   el('out').addEventListener('click', () =>
     window.open(`${location.pathname}?view=display`, '_blank'));
   el('auto').addEventListener('click', () => (autoTimer ? stopAuto() : startAuto()));
-  el('glitch').addEventListener('click', () => {
-    if (glitch.active) {
-      glitch.stop();
-      el('glitch').classList.remove('active');
-    } else {
-      glitch.start();
-      el('glitch').classList.add('active');
-    }
+  const modsPanel = new ModsPanel(el('mods'), modStack, (id, active) => {
+    if (id === 'glitch') el('glitch').classList.toggle('active', active);
   });
-  el('chaos').addEventListener('input', (e) => glitch.setChaos(parseFloat(e.target.value)));
-  glitch.setChaos(parseFloat(el('chaos').value));
+  el('mods-toggle').addEventListener('click', () => {
+    el('mods').hidden = !el('mods').hidden;
+    modsPanel.refresh();
+  });
+  el('glitch').addEventListener('click', () => {
+    modStack.toggle('glitch');
+    el('glitch').classList.toggle('active', modStack.get('glitch').active);
+    modsPanel.refresh();
+  });
+  el('chaos').addEventListener('input', (e) => {
+    modStack.set('glitch', 'amount', parseFloat(e.target.value));
+    modsPanel.refresh();
+  });
+  modStack.set('glitch', 'amount', parseFloat(el('chaos').value));
   el('reroll-all').addEventListener('click', () => sliders.rerollAll());
   el('coords').addEventListener('click', () => setCoords((state.coords + 1) % COORDS.length));
   el('make-sheet').addEventListener('click', () =>
@@ -407,10 +417,46 @@ function initPanel() {
     }
   });
 
-  // startup: permalink wins over the default formula
+  // startup: a permalink wins; otherwise start somewhere COMPLETELY different
+  // every time — a rerolled family (75%) or a fresh random-born formula (25%)
+  function randomStart() {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        if (Math.random() < 0.25) {
+          const born = {
+            type: 'bin',
+            op: Math.random() < 0.5 ? '+' : '*',
+            left: randomExpr(Math.random, 3),
+            right: randomExpr(Math.random, 3),
+          };
+          textarea.value = print(born);
+          editor.apply();
+          setCoords(Math.floor(Math.random() * 3));
+          return;
+        }
+        const family = FAMILIES[Math.floor(Math.random() * FAMILIES.length)];
+        const { ast, params } = extractParams(parse(family.source));
+        const set = lhsParamSets(params, 1, Math.random)[0];
+        textarea.value = print(substituteParams(ast, set));
+        editor.apply();
+        setCoords(Math.max(0, COORD_NAMES.indexOf(family.coords)));
+        currentFamily = family.id;
+        return;
+      } catch {
+        continue;
+      }
+    }
+    textarea.value = DEFAULT_FORMULA;
+    editor.apply();
+  }
+
   const fromUrl = decodePermalink(location.hash);
-  textarea.value = fromUrl ? fromUrl.source : DEFAULT_FORMULA;
-  editor.apply();
+  if (fromUrl) {
+    textarea.value = fromUrl.source;
+    editor.apply();
+  } else {
+    randomStart();
+  }
   if (fromUrl) {
     for (const [name, value] of Object.entries(fromUrl.params)) {
       if (name in state.params) sliders.setValue(name, value);
@@ -427,9 +473,9 @@ function initPanel() {
   function frame(now) {
     state.time = (now - start) / 1000;
     sliders.tick(state.time);
-    // glitch is a render-time overlay: base params stay clean, recovery is exact
-    const g = glitch.tick(state.time, state.params, sliders.ranges());
-    const renderState = g.glitching
+    // modulators are a render-time overlay: base params stay clean
+    const g = modStack.tick(state.time, state.params, sliders.ranges());
+    const renderState = g.modulating
       ? { ...state, params: g.params, coords: g.coords ?? state.coords }
       : state;
     renderer.render(renderState);

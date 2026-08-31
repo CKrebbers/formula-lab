@@ -98,3 +98,15 @@ now both START AT 0 — enabling automation is silent until raised. 163 tests.
 
 **besluit:** glitch is the first "performance gesture" from roadmap phase B
 territory; next candidates stay D1 (input vars) or B1 (cue/take).
+
+## 2026-08-31 — Session 1 (modulator rack + random start)
+
+**status:** glitch generalized into ModStack (core/modulators.js): drift /
+chase / pulse / shuffle / gl!tch, each toggleable with amount+rate in the new
+'mods' panel; smooth mods fade in/out 0.8s, all render-time overlays, additive,
+range-clamped. Glitch got a rate knob (burst frequency). Startup randomized:
+rerolled family or random birth — verified two loads give two different
+formulas. 171 tests green.
+
+**besluit:** the rack is the future home of audio bands, remote inputs and
+gesture playback (roadmap). Next: D1 input vars or B1 cue/take.
