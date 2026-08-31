@@ -1,4 +1,8 @@
-name: Deploy to GitHub Pages
+name: Deploy
+
+# Builds once and publishes the same bytes to two places:
+#   - GitHub Pages   → https://ckrebbers.github.io/formula-lab/
+#   - varve.nl       → https://varve.nl/formula-lab/  (TransIP, over SSH)
 
 on:
   push:
@@ -31,6 +35,12 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+      # the same artifact, in a form the varve job can download: both hosts
+      # serve identical bytes from one build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
 
   deploy:
     needs: build
@@ -41,3 +51,57 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  varve:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      # TransIP does no password auth on SSH, so this goes over a key — same
+      # pattern as the shifts deploy. A missing secret is an error, never a
+      # silent skip: otherwise the run reports green while live stays old.
+      - name: Upload to varve.nl
+        env:
+          SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          for name in SERVER FTP_USER SSH_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name is missing — add FTP_SERVER, FTP_USERNAME and SSH_PRIVATE_KEY to this repo (Settings → Secrets → Actions)."
+              exit 1
+            fi
+          done
+          umask 077
+          printf '%s\n' "$SSH_KEY" > deploy_key
+          SSH="ssh -i deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+          $SSH "$FTP_USER@$SERVER" 'mkdir -p www/formula-lab'
+          # no --delete: only this one file is ours to manage in that directory
+          rsync -az --chmod=F644 -e "$SSH" dist/index.html "$FTP_USER@$SERVER:www/formula-lab/"
+          rm -f deploy_key
+          echo "Uploaded index.html → www/formula-lab/"
+
+      # Prove live actually serves this build; a mismatch turns the run red
+      # instead of failing quietly. Hashes only, never file contents.
+      - name: Verify live is current
+        run: |
+          set -euo pipefail
+          local_hash=$(sha256sum dist/index.html | cut -d' ' -f1)
+          live_hash=$(curl -sSf --compressed \
+            "https://varve.nl/formula-lab/index.html?ci=${GITHUB_RUN_ID}" | sha256sum | cut -d' ' -f1)
+          if [ "$local_hash" != "$live_hash" ]; then
+            echo "::error::varve.nl/formula-lab/ is not serving this build."
+            exit 1
+          fi
+          # the directory URL is what people actually open
+          code=$(curl -sS -o /dev/null -w '%{http_code}' "https://varve.nl/formula-lab/?ci=${GITHUB_RUN_ID}")
+          if [ "$code" != "200" ]; then
+            echo "::error::https://varve.nl/formula-lab/ returned $code."
+            exit 1
+          fi
+          echo "https://varve.nl/formula-lab/ is up to date"
