@@ -51,6 +51,7 @@ export class Renderer {
       resolution: gl.getUniformLocation(program, 'u_resolution'),
       mouse: gl.getUniformLocation(program, 'u_mouse'),
       coords: gl.getUniformLocation(program, 'u_coords'),
+      raw: gl.getUniformLocation(program, 'u_raw'),
     };
     this.paramLocations = {};
     for (const name of paramNames) {
@@ -84,6 +85,7 @@ export class Renderer {
     gl.uniform2f(this.uniforms.resolution, this.canvas.width, this.canvas.height);
     gl.uniform2f(this.uniforms.mouse, state.mouse[0], state.mouse[1]);
     gl.uniform1i(this.uniforms.coords, state.coords ?? 0);
+    gl.uniform1i(this.uniforms.raw, state.raw ? 1 : 0);
     if (state.params) {
       for (const [name, loc] of Object.entries(this.paramLocations || {})) {
         gl.uniform1f(loc, state.params[name] ?? 0);
@@ -91,6 +93,16 @@ export class Renderer {
     }
     gl.bindVertexArray(this.vao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  /** Read the just-rendered frame back (call in the same task as render()). */
+  readPixels() {
+    const gl = this.gl;
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    return { pixels, width, height };
   }
 }
 

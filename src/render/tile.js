@@ -25,6 +25,15 @@ export class TileRenderer {
     ctx.drawImage(this.canvas, 0, 0, ctx.canvas.width, ctx.canvas.height);
   }
 
+  /**
+   * Render palette-free (u_raw) and read pixels back — the §7 stats input.
+   * Continuous grayscale, otherwise the 4-color LUT caps entropy at 1/3.
+   */
+  readStats(state) {
+    this.renderer.render({ ...state, raw: true });
+    return this.renderer.readPixels();
+  }
+
   /** Render and return a small PNG data URL (64×64 by default, per §4). */
   thumbnail(state, size = 64) {
     this.renderer.render(state);

@@ -188,12 +188,12 @@ export function transpile(ast) {
     body = [
       `  vec2 warp = ${expression};`,
       `  float v = fl_fbm(vec2(x + warp.x, y + warp.y), 4.0) * 2.0 - 1.0;`,
-      `  vec3 color = fl_palette(v);`,
+      `  vec3 color = (u_raw == 1) ? vec3(clamp(v * 0.5 + 0.5, 0.0, 1.0)) : fl_palette(v);`,
     ].join('\n');
   } else {
     body = [
       `  float v = ${expression};`,
-      `  vec3 color = fl_palette(v);`,
+      `  vec3 color = (u_raw == 1) ? vec3(clamp(v * 0.5 + 0.5, 0.0, 1.0)) : fl_palette(v);`,
     ].join('\n');
   }
 
@@ -204,6 +204,7 @@ uniform float u_time;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 uniform int u_coords; // 0 = cartesian, 1 = polar, 2 = toroidal
+uniform int u_raw;    // 1 = skip the palette LUT (continuous grayscale, for stats)
 ${paramUniforms}
 out vec4 outColor;
 ${HELPERS}
