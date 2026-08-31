@@ -16,7 +16,9 @@ export function nextMode(mode) {
  * @param {number} index — param index, used to de-sync phases (golden ratio steps)
  */
 export function createAutomation(center, index = 0) {
-  return { mode: 'off', rate: 0.2, depth: 0.5, phase: index * 0.381966, center };
+  // rate and depth both start at 0: enabling an LFO changes nothing until
+  // you raise them — no surprise motion (Clay, 2026-08-31)
+  return { mode: 'off', rate: 0, depth: 0, phase: index * 0.381966, center };
 }
 
 /** Waveform in cycles → −1..1. */

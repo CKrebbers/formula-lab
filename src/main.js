@@ -25,6 +25,7 @@ import { ElitesPanel } from './ui/elites.js';
 import { FAMILIES } from './families/index.js';
 import { SyncChannel } from './sync/local.js';
 import { initDisplay } from './display.js';
+import { GlitchEngine } from './core/glitch.js';
 
 const VIEW = new URLSearchParams(location.search).get('view');
 if (VIEW === 'display') {
@@ -58,6 +59,7 @@ function initPanel() {
   const histCache = new HistCache();
   const elites = new ElitesGrid(localStorage);
   const sync = new SyncChannel();
+  const glitch = new GlitchEngine();
 
   const sliders = new SliderPanel(el('sliders'), (name, value) => {
     state.params[name] = value;
@@ -352,6 +354,17 @@ function initPanel() {
   el('out').addEventListener('click', () =>
     window.open(`${location.pathname}?view=display`, '_blank'));
   el('auto').addEventListener('click', () => (autoTimer ? stopAuto() : startAuto()));
+  el('glitch').addEventListener('click', () => {
+    if (glitch.active) {
+      glitch.stop();
+      el('glitch').classList.remove('active');
+    } else {
+      glitch.start();
+      el('glitch').classList.add('active');
+    }
+  });
+  el('chaos').addEventListener('input', (e) => glitch.setChaos(parseFloat(e.target.value)));
+  glitch.setChaos(parseFloat(el('chaos').value));
   el('reroll-all').addEventListener('click', () => sliders.rerollAll());
   el('coords').addEventListener('click', () => setCoords((state.coords + 1) % COORDS.length));
   el('make-sheet').addEventListener('click', () =>
@@ -410,11 +423,23 @@ function initPanel() {
 
   const start = performance.now();
   let frameCount = 0;
+  let lastSentCoords = null;
   function frame(now) {
     state.time = (now - start) / 1000;
     sliders.tick(state.time);
-    renderer.render(state);
-    if (frameCount++ % 2 === 0) sync.send('params', { params: state.params }); // ~30 Hz
+    // glitch is a render-time overlay: base params stay clean, recovery is exact
+    const g = glitch.tick(state.time, state.params, sliders.ranges());
+    const renderState = g.glitching
+      ? { ...state, params: g.params, coords: g.coords ?? state.coords }
+      : state;
+    renderer.render(renderState);
+    if (frameCount++ % 2 === 0) {
+      sync.send('params', { params: renderState.params }); // ~30 Hz, glitch included
+    }
+    if (renderState.coords !== lastSentCoords) {
+      sync.send('coords', { coords: renderState.coords });
+      lastSentCoords = renderState.coords;
+    }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

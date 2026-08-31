@@ -29,10 +29,16 @@ describe('automate: evaluate', () => {
     expect(evaluate(auto({ mode: 'off' }), RANGE, 123.4)).toBe(2);
   });
 
-  it('returns center when depth is 0', () => {
+  it('returns center when depth is 0 (the default)', () => {
     for (const mode of ['sine', 'tri', 'walk']) {
-      expect(evaluate(auto({ mode, depth: 0 }), RANGE, 7.7)).toBeCloseTo(2, 10);
+      expect(evaluate(auto({ mode }), RANGE, 7.7)).toBeCloseTo(2, 10);
     }
+  });
+
+  it('new automations start with rate 0 and depth 0', () => {
+    const a = createAutomation(1, 0);
+    expect(a.rate).toBe(0);
+    expect(a.depth).toBe(0);
   });
 
   it('stays inside the range for all modes over time', () => {
@@ -53,8 +59,9 @@ describe('automate: evaluate', () => {
     expect(v2).toBeCloseTo(v1, 8);
   });
 
-  it('actually moves when active', () => {
-    const a = auto({ mode: 'sine', depth: 0.5 });
+  it('actually moves when active (with rate and depth raised)', () => {
+    // defaults are rate 0 / depth 0 by design: enabling an LFO is silent
+    const a = auto({ mode: 'sine', depth: 0.5, rate: 0.2 });
     const values = new Set();
     for (let t = 0; t < 5; t += 0.5) values.add(evaluate(a, RANGE, t).toFixed(4));
     expect(values.size).toBeGreaterThan(3);

@@ -76,7 +76,7 @@ export class SliderPanel {
     const autoRow = document.createElement('div');
     autoRow.className = 'auto-row';
     autoRow.hidden = true;
-    const rate = miniRange(0.02, 2, 0.01, auto.rate, 'rate (Hz)');
+    const rate = miniRange(0, 2, 0.01, auto.rate, 'rate (Hz)');
     const depth = miniRange(0, 1, 0.01, auto.depth, 'depth (fraction of range)');
     rate.addEventListener('input', () => { auto.rate = parseFloat(rate.value); });
     depth.addEventListener('input', () => { auto.depth = parseFloat(depth.value); });
@@ -152,6 +152,13 @@ export class SliderPanel {
       start: this.lastT,
       duration: GLIDE_SECONDS,
     };
+  }
+
+  /** Slider ranges per param (used by the glitch overlay for clamping). */
+  ranges() {
+    const out = {};
+    for (const [name, { range }] of Object.entries(this.rows)) out[name] = range;
+    return out;
   }
 
   /**

@@ -86,3 +86,15 @@ center / orbit; audio as enveloped automation source; beats as events).
 
 **besluit:** audio lands later as an automation mode per the combination model —
 through the same center±depth lens, with attack/release smoothing.
+
+## 2026-08-31 — Session 1 (glitch + LFO defaults)
+
+**status:** gl!tch button + chaos slider (core/glitch.js): Poisson-ish bursts
+(30–260ms) spike a chaos-scaled subset of params with heavy-tailed offsets,
+per-frame rejitter at high chaos, occasional 1-burst coords flip; render-time
+overlay so base params/saves never move and recovery is exact; deliberately
+bypasses glide (a glitch should tear). Displays glitch along. LFO rate & depth
+now both START AT 0 — enabling automation is silent until raised. 163 tests.
+
+**besluit:** glitch is the first "performance gesture" from roadmap phase B
+territory; next candidates stay D1 (input vars) or B1 (cue/take).
