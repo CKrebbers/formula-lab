@@ -122,3 +122,11 @@ consumed-then-stripped, and 'link' copies without touching the URL. 179 tests.
 
 **besluit:** every param×band×focus combination is now an experiment, as
 intended. Real-music tuning of envelope constants is Clay's ear-work.
+
+## 2026-08-31 — Session 1 (movable automation)
+
+**status:** ←/→ in the automation sub-row moves a full automation setup
+(mode + rate/focus + depth) to the neighbouring param, as a swap (wraps,
+nothing lost); center and phase stay with their param, the abandoned param
+settles on its center. Slider automation UI refactored around refreshAutoUI.
+Verified live: sine walked a→b→c carrying its settings. 180 tests.

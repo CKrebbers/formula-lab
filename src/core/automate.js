@@ -26,6 +26,17 @@ export function createAutomation(center, index = 0) {
   return { mode: 'off', rate: 0, depth: 0, phase: index * 0.381966, center };
 }
 
+/**
+ * Swap automation SETTINGS (mode, rate, depth) between two params.
+ * center and phase stay with their own param — the setting moves,
+ * the parameter keeps its position and de-sync.
+ */
+export function swapAutomationSettings(a, b) {
+  for (const key of ['mode', 'rate', 'depth']) {
+    [a[key], b[key]] = [b[key], a[key]];
+  }
+}
+
 /** Waveform in cycles → −1..1. */
 function wave(mode, x) {
   switch (mode) {

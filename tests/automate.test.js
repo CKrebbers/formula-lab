@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { MODES, nextMode, createAutomation, evaluate, glideValue } from '../src/core/automate.js';
+import {
+  MODES, nextMode, createAutomation, evaluate, glideValue, swapAutomationSettings,
+} from '../src/core/automate.js';
 
 const RANGE = { min: -2, max: 6 };
 
@@ -20,6 +22,17 @@ describe('automate: modes', () => {
 
   it('de-syncs phases per param index', () => {
     expect(createAutomation(0, 0).phase).not.toBe(createAutomation(0, 1).phase);
+  });
+
+  it('swapAutomationSettings trades mode/rate/depth, keeps center/phase', () => {
+    const a = { ...createAutomation(1.5, 0), mode: 'bass', rate: 1.8, depth: 0.7 };
+    const b = { ...createAutomation(-2, 1), mode: 'off', rate: 0, depth: 0 };
+    swapAutomationSettings(a, b);
+    expect([a.mode, a.rate, a.depth]).toEqual(['off', 0, 0]);
+    expect([b.mode, b.rate, b.depth]).toEqual(['bass', 1.8, 0.7]);
+    expect(a.center).toBe(1.5);
+    expect(b.center).toBe(-2);
+    expect(a.phase).not.toBe(b.phase);
   });
 });
 

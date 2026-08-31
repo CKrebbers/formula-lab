@@ -1,8 +1,13 @@
 // Auto-generated sliders for extracted params, with per-slider lock, reroll
-// and automation (LFO). Slider moves only touch uniforms — never a recompile.
+// and automation (LFO / audio bands). Automation settings can be moved between
+// params with ←/→ (a swap — nothing is ever lost). Slider moves only touch
+// uniforms — never a recompile.
 
 import { inferRange, reroll } from '../core/constants.js';
-import { createAutomation, evaluate, nextMode, glideValue, MODE_ICONS, AUDIO_MODES } from '../core/automate.js';
+import {
+  createAutomation, evaluate, nextMode, glideValue, swapAutomationSettings,
+  MODE_ICONS, AUDIO_MODES,
+} from '../core/automate.js';
 
 const GLIDE_SECONDS = 0.5; // discrete changes ease in — no visual jumps
 
@@ -59,7 +64,7 @@ export class SliderPanel {
 
     const autoBtn = document.createElement('button');
     autoBtn.className = 'slider-btn';
-    autoBtn.title = 'automation: off → sine → triangle → walk';
+    autoBtn.title = 'automation: off → sine → triangle → walk → ♪bass → ♪mid → ♪high';
     autoBtn.textContent = MODE_ICONS.off;
 
     const lock = document.createElement('button');
@@ -72,16 +77,28 @@ export class SliderPanel {
     rerollBtn.title = 'reroll: fresh random value in range';
     rerollBtn.textContent = '⟳';
 
-    // sub-row with rate/depth, shown while automation is active
+    // sub-row with rate/depth + move buttons, shown while automation is active
     const autoRow = document.createElement('div');
     autoRow.className = 'auto-row';
     autoRow.hidden = true;
-    const rate = miniRange(0, 2, 0.01, auto.rate, 'rate (Hz)');
-    const depth = miniRange(0, 1, 0.01, auto.depth, 'depth (fraction of range)');
-    rate.addEventListener('input', () => { auto.rate = parseFloat(rate.value); });
-    depth.addEventListener('input', () => { auto.depth = parseFloat(depth.value); });
+    const rateInput = miniRange(0, 2, 0.01, auto.rate, 'rate (Hz)');
+    const depthInput = miniRange(0, 1, 0.01, auto.depth, 'depth (fraction of range)');
+    rateInput.addEventListener('input', () => { auto.rate = parseFloat(rateInput.value); });
+    depthInput.addEventListener('input', () => { auto.depth = parseFloat(depthInput.value); });
     const rateLabel = miniLabel('rate');
-    autoRow.append(rateLabel, rate, miniLabel('depth'), depth);
+
+    const moveL = document.createElement('button');
+    moveL.className = 'slider-btn';
+    moveL.textContent = '←';
+    moveL.title = 'move this automation to the previous param (swaps settings)';
+    const moveR = document.createElement('button');
+    moveR.className = 'slider-btn';
+    moveR.textContent = '→';
+    moveR.title = 'move this automation to the next param (swaps settings)';
+    moveL.addEventListener('click', () => this.moveAutomation(name, -1));
+    moveR.addEventListener('click', () => this.moveAutomation(name, 1));
+
+    autoRow.append(rateLabel, rateInput, miniLabel('depth'), depthInput, moveL, moveR);
 
     slider.addEventListener('input', () => {
       delete this.glides[name]; // dragging takes over: direct, no easing lag
@@ -94,20 +111,8 @@ export class SliderPanel {
     autoBtn.addEventListener('click', () => {
       auto.mode = nextMode(auto.mode);
       auto.center = parseFloat(slider.value);
-      autoBtn.textContent = MODE_ICONS[auto.mode];
-      autoRow.hidden = auto.mode === 'off';
-      row.classList.toggle('automated', auto.mode !== 'off');
-      const isAudio = AUDIO_MODES.includes(auto.mode);
-      rateLabel.textContent = isAudio ? 'r↔h' : 'rate';
-      rate.title = isAudio
-        ? 'focus: left = hardness (loudness level), right = rhythm (beat pulses)'
-        : 'rate (Hz)';
-      if (auto.mode === 'off') {
-        // settle back on the center so the param doesn't freeze mid-swing
-        slider.value = auto.center;
-        readout.textContent = formatValue(auto.center);
-        this.onChange(name, auto.center);
-      }
+      this.refreshAutoUI(name);
+      if (auto.mode === 'off') this.settle(name);
     });
 
     lock.addEventListener('click', () => {
@@ -126,15 +131,56 @@ export class SliderPanel {
     wrap.className = 'slider-wrap';
     row.append(label, slider, readout, autoBtn, lock, rerollBtn);
     wrap.append(row, autoRow);
-    this.rows[name] = { slider, readout, range, lockBtn: lock };
+    this.rows[name] = {
+      slider, readout, range, lockBtn: lock,
+      autoBtn, autoRow, rateInput, depthInput, rateLabel, rowEl: row,
+    };
     return wrap;
   }
 
-  /** Set a param's lock from code (snapshot load); reuses the button handler. */
-  setLock(name, locked) {
-    if (this.rows[name] && this.locks[name] !== !!locked) {
-      this.rows[name].lockBtn.click();
-    }
+  /** Sync one row's automation UI from its auto state. */
+  refreshAutoUI(name) {
+    const row = this.rows[name];
+    const auto = this.autos[name];
+    if (!row || !auto) return;
+    row.autoBtn.textContent = MODE_ICONS[auto.mode];
+    row.autoRow.hidden = auto.mode === 'off';
+    row.rowEl.classList.toggle('automated', auto.mode !== 'off');
+    row.rateInput.value = auto.rate;
+    row.depthInput.value = auto.depth;
+    const isAudio = AUDIO_MODES.includes(auto.mode);
+    row.rateLabel.textContent = isAudio ? 'r↔h' : 'rate';
+    row.rateInput.title = isAudio
+      ? 'focus: left = hardness (loudness level), right = rhythm (beat pulses)'
+      : 'rate (Hz)';
+  }
+
+  /** Land a param back on its center (automation left or turned off). */
+  settle(name) {
+    const { slider, readout } = this.rows[name];
+    const center = this.autos[name].center;
+    slider.value = center;
+    readout.textContent = formatValue(center);
+    this.onChange(name, center);
+  }
+
+  /**
+   * Move this param's automation to its neighbour (dir ±1, wraps). Settings
+   * swap, so repeated presses walk a setup through every param.
+   */
+  moveAutomation(name, dir) {
+    const names = Object.keys(this.rows);
+    if (names.length < 2) return;
+    const i = names.indexOf(name);
+    const j = (i + dir + names.length) % names.length;
+    const other = names[j];
+    swapAutomationSettings(this.autos[name], this.autos[other]);
+    this.autos[name].center = parseFloat(this.rows[name].slider.value);
+    this.autos[other].center = parseFloat(this.rows[other].slider.value);
+    this.refreshAutoUI(name);
+    this.refreshAutoUI(other);
+    if (this.autos[name].mode === 'off') this.settle(name);
+    if (this.autos[other].mode === 'off') this.settle(other);
   }
 
   /**
@@ -178,6 +224,13 @@ export class SliderPanel {
       out[name] = this.glides[name] ? this.glides[name].to : parseFloat(slider.value);
     }
     return out;
+  }
+
+  /** Set a param's lock from code (snapshot load); reuses the button handler. */
+  setLock(name, locked) {
+    if (this.rows[name] && this.locks[name] !== !!locked) {
+      this.rows[name].lockBtn.click();
+    }
   }
 
   /** Reroll every unlocked param at once. */
