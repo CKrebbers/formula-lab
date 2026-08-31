@@ -21,8 +21,10 @@ palettes + tone mapping ✓. Ordered by agreed priority; sizes are sessions.
 
 ## Roadmap phases (docs/ROADMAP-SYMBIOSIS.md)
 
-- **B1 cue/take** — program/preview like a video mixer: edit blind, TAKE
-  commits with crossfade (v4's A/B crossfader, via the sync layer). (1)
+- ~~**B1 cue/take**~~ ✓ SHIPPED 2026-09-01 — program/preview, TAKE commits with
+  the existing crossfade; policy B live channel; dice; starters strip (ADR
+  #28-30). NOT done and still open here: CUT (instant take), a program PIP on
+  the panel, "from archive" starters, and the multi-panel conductor question.
 - **B2 XY performance pad** — axes assignable to any param; germ of
   multi-touch. (with B3/B4: 1)
 - **B3 macros** — one knob drives N params through ranges; "DNA dial" walks

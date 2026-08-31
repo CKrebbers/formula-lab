@@ -2,6 +2,37 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-09-01 — The panel becomes an instrument: cue/take, dice, starters (B1)
+
+**status:** the play face, not more language.
+
+- **TAKE** (`T`, or `Cmd/Ctrl+Enter` from inside the editor): the displays only
+  change when you commit. Editing a formula, loading a family/pack, promoting a
+  sheet tile or dicing now lands in the CUE; the panel canvas is that preview.
+  The button glows red while the cue differs from what is on air.
+- **Live channel (policy B, ADR #28):** sliders, LFOs, modulators and audio keep
+  streaming to the displays while cue and program share the same formula — play
+  stays live, authoring needs a commit. Change the formula and the channel closes
+  until TAKE.
+- **cue / live edit** toggle keeps the old immediate-broadcast behaviour as an
+  escape hatch.
+- **dice** (`D`): nudges one unlocked constant in the formula text, Hydra-style.
+  Arms TAKE; never leaks to the displays.
+- **Starters strip:** five one-click starting points (Ripple, Trails, Bytebeat,
+  Kaliset, Warp) with thumbnails, rendered after boot. A click cues and takes, so
+  the first minute never requires typing.
+- Zero-player auto-TAKEs, so `auto` still drives the displays exactly as before.
+
+Verified live against a real display window: cue edits do not reach it, TAKE does
+(0.9 s crossfade), dice arms silently, `hello` is answered with program while the
+cue held something else. 222 tests.
+
+**Known:** several open panels on the same origin share one BroadcastChannel, so
+they all answer `hello` and the last TAKE wins. Fine for one panel + displays;
+the conductor role in Phase C is where that gets resolved. Also still open: the
+double-click slider-range gesture expands rather than tightens for large values
+(the `»` `«` arrows are the working path).
+
 ## 2026-09-01 — dx/dy + bitwise helpers
 
 **status:** two language additions. `dx`/`dy` are variables holding one screen

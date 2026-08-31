@@ -84,11 +84,12 @@ every launch begins somewhere completely different. Future modulators
 
 The panel today is a *lab*. For live use it needs a *performance* face:
 
-1. **Program/preview (cue) model** — like a video mixer: the panel edits a
-   NEXT state (blind), the display holds the CURRENT state; a big `TAKE`
-   button (or crossfade slider) commits. Protocol: add `cue` and `take`
-   messages; display keeps two shader slots and lerps params during the fade.
-   This is v4's A/B crossfader (§9), arriving via the sync layer.
+1. ~~**Program/preview (cue) model**~~ ✓ SHIPPED 2026-09-01. No new message
+   types were needed after all: `formula` is simply gated behind TAKE, and
+   params/coords/style stream live only while cue and program share a formula
+   (policy B, ADR #28). The display's existing dual-canvas crossfade does the
+   fade. Still open: CUT (instant), a panel-side program PIP, param lerping
+   across the fade.
 2. **XY performance pad** — a large touch/mouse pad; each axis assignable to
    any param (dropdowns). This is the germ of the multi-touch story.
 3. **Macro system** — one macro knob drives N params through ranges (the

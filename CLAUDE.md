@@ -31,7 +31,14 @@ rendering fidelity.
 | Language | Vanilla JS + JSDoc. No TypeScript, no React/Vue/Svelte, no CSS framework |
 | Snapshot schema | Versioned + migrate() from day one |
 
-3. CURRENT STATUS (2026-09-01)
+3. CURRENT STATUS (2026-09-01, updated after the play-face session)
+
+SINCE THE SECTION BELOW WAS WRITTEN: the formula language gained `prev(x, y)`
+(feedback), `dx`/`dy` (pixel step) and bitwise helpers, and the panel gained the
+cue/take program–preview model, a dice, and a starters strip. Read
+docs/CHANGELOG.md top entries before assuming anything about the panel's
+broadcast behaviour: formulas now reach the displays only on TAKE.
+
 Built in one marathon session (24 commits, ~5,500 lines, 201 vitest tests green,
 single-file build ~94 kB). v1, v2 and v3's zero-player are DONE, plus a large
 amount of instrument/live work that was originally scheduled for v4.

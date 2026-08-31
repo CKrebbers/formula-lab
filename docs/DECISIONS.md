@@ -119,6 +119,43 @@
     undefined). Known limit, documented rather than hidden: a float has no exact
     integer low bits above 2^24, so huge intermediate products give coarse banding
     instead of fine bit texture — keep operands small.
+28. **Cue/take (program–preview), policy B: the live channel follows the formula.**
+    PROGRAM is what the displays show; CUE is what the panel edits; only TAKE
+    commits. Chosen policy B over the stricter A because params already stream at
+    ~30 Hz and carry every slider, LFO, modulator and audio band — freezing them
+    until TAKE would kill the instrument. Rule in one line: **params/coords/style
+    stream straight through while cue and program share the same formula source;
+    the moment the source differs nothing reaches the displays until TAKE.** So
+    uniform-level play stays live, authoring needs a commit. Consequences:
+    - `armed` means only "the cue's source differs from program's" — everything
+      else is already live, so there is nothing else to commit.
+    - TAKE sends one `formula` when the source changed (displays rebuild and reset
+      feedback via the existing crossfade), otherwise a plain `params` refresh, so
+      an unchanged formula never triggers a needless fade or feedback reset.
+    - `hello` is always answered with program, never with a half-edited cue.
+    - The panel's own canvas is the CUE preview (a program PIP on the panel is
+      deferred). With no display window open, TAKE therefore has no visible effect
+      beyond the armed indicator — accepted; the display window is the program monitor.
+    - The zero-player auto-TAKEs each accepted elite, so the display keeps moving
+      exactly as before. Human edits do not.
+    - `cueMode` off restores the legacy immediate-broadcast behaviour as an escape
+      hatch; leaving cue mode publishes what you were editing.
+    - Export/permalink/snapshot keep reading the panel's current (cue) state, which
+      is what the user is looking at; schema v2 is untouched.
+    - Logic lives in `src/sync/cue.js`, pure with an injected send, so the gating is
+      unit-tested rather than asserted about DOM.
+29. **Dice rewrites the formula text, it does not move a slider.** One unlocked
+    constant, via the existing `astConstTweak` — so it arms TAKE like any other
+    authoring act, and the separation stays clean: sliders/LFOs/audio are the live
+    channel, editor/dice/family/pack/starters are cue authoring. No §7 filter on a
+    dice: a human asked for exactly one nudge and is the filter; §7 exists to
+    protect attention from machine bulk. Retries up to 8× on a parse round-trip
+    failure, then a status message.
+30. **Starters are self-contained, not family references** (`families/starters.js`):
+    five deliberately different kinds (wave, feedback, integer glitch, fractal,
+    warp) so the first screen shows the instrument's range. A click cues AND takes,
+    because a cold start must yield a living image, not homework. Thumbnails render
+    after first paint (a shader compile each) and restore the panel's shader.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

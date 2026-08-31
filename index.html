@@ -25,6 +25,23 @@
       background: #0f0f1b; color: #c6b7be; border: 1px solid #565a75;
       padding: 2px 4px; outline: none;
     }
+    #starters { display: flex; gap: 4px; }
+    .starter {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+      background: none; border: 1px solid #565a75; color: #c6b7be;
+      cursor: pointer; padding: 3px; font-size: 9px;
+    }
+    .starter:hover { border-color: #fafbf6; color: #fafbf6; }
+    .starter canvas { width: 100%; display: block; image-rendering: pixelated; }
+    #program-bar { display: flex; gap: 6px; align-items: stretch; }
+    #take {
+      flex: 1; background: none; border: 1px solid #565a75; color: #565a75;
+      cursor: pointer; padding: 5px; font: bold 12px monospace; letter-spacing: 2px;
+    }
+    #take.armed { border-color: #ff5566; color: #ff5566; }
+    #take.armed:hover { background: #ff5566; color: #0f0f1b; }
+    #take:disabled { cursor: default; }
+    #cue-mode.active { border-color: #8be9b6; color: #8be9b6; }
     #error {
       margin: 0; padding: 4px 6px; white-space: pre-wrap;
       color: #ff5566; background: rgba(255, 85, 102, 0.08);
@@ -163,6 +180,12 @@
 <body>
   <canvas id="canvas"></canvas>
   <div id="panel">
+    <div id="starters" title="one click = a living image"></div>
+    <div id="program-bar">
+      <button id="take" title="TAKE: commit the cue to the displays (T, or Cmd/Ctrl+Enter)">TAKE</button>
+      <button id="cue-mode" class="slider-btn" title="cue = displays wait for TAKE · live edit = every change goes straight out">cue</button>
+      <button id="dice" class="slider-btn" title="dice: nudge one unlocked constant in the formula (D)">dice</button>
+    </div>
     <select id="family" title="load a starter formula family"></select>
     <textarea id="formula" rows="3" spellcheck="false"></textarea>
     <pre id="error" hidden></pre>

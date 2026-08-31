@@ -24,7 +24,10 @@ import { Explorer } from './search/explore.js';
 import { ElitesPanel } from './ui/elites.js';
 import { FAMILIES } from './families/index.js';
 import { SyncChannel } from './sync/local.js';
+import { CueProgram } from './sync/cue.js';
 import { initDisplay } from './display.js';
+import { astConstTweak } from './search/mutate.js';
+import { StartersStrip } from './ui/starters.js';
 import { ModStack } from './core/modulators.js';
 import { ModsPanel } from './ui/mods.js';
 import { substituteParams } from './core/constants.js';
@@ -67,6 +70,7 @@ function initPanel() {
   const histCache = new HistCache();
   const elites = new ElitesGrid(localStorage);
   const sync = new SyncChannel();
+  const cue = new CueProgram((type, payload) => sync.send(type, payload));
   const modStack = new ModStack();
   const audioEngine = new AudioEngine();
   const packs = new FamilyPacks(localStorage);
@@ -108,11 +112,32 @@ function initPanel() {
     lineagePanel.show({ ...snap, rating }, archive.parents(id), archive.children(id));
   });
 
-  function broadcastFormula() {
-    sync.send('formula', {
-      source: textarea.value, coords: state.coords, params: state.params,
+  /** Everything the displays need to reproduce the current cue. */
+  function cueState() {
+    return {
+      source: textarea.value, coords: state.coords, params: { ...state.params },
       palette: state.palette, smooth: state.smooth, tone: state.tone,
-    });
+    };
+  }
+
+  /** Commit cue → program: the only path by which a formula reaches a display. */
+  function take() {
+    cue.take(cueState());
+    refreshTakeUI();
+  }
+
+  function refreshTakeUI() {
+    const armed = cue.isArmed(textarea.value);
+    el('take').classList.toggle('armed', armed);
+    el('take').disabled = !armed && cue.cueMode;
+    el('cue-mode').classList.toggle('active', cue.cueMode);
+    el('cue-mode').textContent = cue.cueMode ? 'cue' : 'live edit';
+  }
+
+  /** The cue changed. In live-edit mode that commits straight away. */
+  function cueChanged() {
+    if (!cue.cueMode) take();
+    else refreshTakeUI();
   }
 
   function applyFormula(source) {
@@ -133,14 +158,14 @@ function initPanel() {
     sliders.rebuild(params);
     sheet.clear();
     updateStatus();
-    broadcastFormula();
+    cueChanged(); // the panel canvas is the cue preview; displays wait for TAKE
   }
 
   function setCoords(index) {
     state.coords = index;
     el('coords').textContent = COORDS[index];
     updateStatus();
-    sync.send('coords', { coords: index });
+    cue.live('coords', { coords: index }, textarea.value);
   }
 
   function setStyle({ palette = state.palette, smooth = state.smooth, tone = state.tone } = {}) {
@@ -150,7 +175,11 @@ function initPanel() {
     el('palette').value = String(state.palette);
     el('tone').textContent = TONES[state.tone];
     el('smooth').textContent = state.smooth ? '▤' : '▦';
-    sync.send('style', { palette: state.palette, smooth: state.smooth, tone: state.tone });
+    cue.live(
+      'style',
+      { palette: state.palette, smooth: state.smooth, tone: state.tone },
+      textarea.value
+    );
   }
 
   function updateStatus(extra = '') {
@@ -339,6 +368,7 @@ function initPanel() {
           pendingOperator = snap.operator;
           currentFamily = snap.family;
           currentParentIds = [snap.id];
+          take(); // the zero-player auto-TAKEs: the display keeps moving
         }
       }
       updateStatus(` · auto: ${elites.count()}/100 cells · ${explorer.found}/${explorer.tried} passed`);
@@ -393,7 +423,48 @@ function initPanel() {
     }
   }
 
+  /**
+   * Dice (Hydra-style): nudge ONE unlocked constant in the cue formula text.
+   * It rewrites the source, so it arms TAKE rather than leaking to the
+   * displays — sliders stay the live channel, authoring stays a commit.
+   * No §7 filter here on purpose: a human asked for exactly one nudge and is
+   * the filter; §7 exists to protect attention from machine bulk (ADR #28).
+   */
+  function dice() {
+    if (!currentParamAst) return;
+    const raw = substituteParams(currentParamAst, sliders.targetParams());
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const child = astConstTweak(raw, Math.random, { locks: sliders.locks });
+      if (!child) break; // every constant is locked (or there are none)
+      try {
+        const source = print(child);
+        parse(source); // must survive the round-trip before it reaches the editor
+        textarea.value = source;
+        editor.apply();
+        pendingOrigin = 'mutate';
+        pendingOperator = 'const_tweak';
+        updateStatus(cue.cueMode ? ' · diced — TAKE to show it' : ' · diced');
+        return;
+      } catch {
+        continue;
+      }
+    }
+    updateStatus(' · dice: nothing unlocked to change');
+  }
+
   const editor = initEditor(textarea, el('error'), applyFormula);
+
+  const starters = new StartersStrip(el('starters'), (starter) => {
+    stopAuto();
+    textarea.value = starter.source;
+    editor.apply();
+    setCoords(Math.max(0, COORD_NAMES.indexOf(starter.coords)));
+    setStyle(starter);
+    currentFamily = null;
+    pendingOrigin = null;
+    pendingOperator = null;
+    take(); // a starter click must produce a living image, not homework
+  });
   const familyPicker = initFamilyPicker(el('family'), loadFamily, familyGroups);
 
   const packsPanel = new PacksPanel(el('packs'), packs, {
@@ -420,8 +491,15 @@ function initPanel() {
     pendingOperator = null;
   });
 
-  sync.on('hello', () => { if (lastAst) broadcastFormula(); });
+  sync.on('hello', () => cue.hello()); // a new display gets program, never cue
 
+  el('take').addEventListener('click', take);
+  el('dice').addEventListener('click', dice);
+  el('cue-mode').addEventListener('click', () => {
+    cue.cueMode = !cue.cueMode;
+    if (!cue.cueMode) take(); // leaving cue mode publishes what you were editing
+    refreshTakeUI();
+  });
   el('out').addEventListener('click', () =>
     window.open(`${location.pathname}?view=display`, '_blank'));
   el('auto').addEventListener('click', () => (autoTimer ? stopAuto() : startAuto()));
@@ -510,9 +588,17 @@ function initPanel() {
   });
 
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'h' && document.activeElement !== textarea) {
-      el('panel').hidden = !el('panel').hidden;
+    // Cmd/Ctrl+Enter works from inside the editor too; bare keys must not
+    // steal characters while typing a formula
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      take();
+      return;
     }
+    if (document.activeElement === textarea) return;
+    if (e.key === 'h') el('panel').hidden = !el('panel').hidden;
+    else if (e.key === 't') take();
+    else if (e.key === 'd') dice();
   });
 
   // startup: a permalink wins; otherwise start somewhere COMPLETELY different
@@ -566,8 +652,11 @@ function initPanel() {
     setStyle(fromUrl);
   }
   setStyle({}); // sync the style controls with initial state
+  take();       // bootstrap: program := the state we booted with
   refreshArchive();
   elitesPanel.refresh(elites);
+  // starter thumbnails compile a shader each — never on the boot path
+  setTimeout(() => starters.renderThumbs(tileRenderer, currentShader), 0);
 
   const start = performance.now();
   let frameCount = 0;
@@ -581,12 +670,15 @@ function initPanel() {
       ? { ...state, params: g.params, coords: g.coords ?? state.coords }
       : state;
     renderer.render(renderState);
+    // ~30 Hz live channel (glitch included) — open only while cue and program
+    // share a formula, so sliders/LFOs/audio keep driving the live image
     if (frameCount++ % 2 === 0) {
-      sync.send('params', { params: renderState.params }); // ~30 Hz, glitch included
+      cue.live('params', { params: renderState.params }, textarea.value);
     }
     if (renderState.coords !== lastSentCoords) {
-      sync.send('coords', { coords: renderState.coords });
-      lastSentCoords = renderState.coords;
+      if (cue.live('coords', { coords: renderState.coords }, textarea.value)) {
+        lastSentCoords = renderState.coords;
+      }
     }
     requestAnimationFrame(frame);
   }
