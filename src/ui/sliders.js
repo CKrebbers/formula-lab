@@ -114,8 +114,15 @@ export class SliderPanel {
     wrap.className = 'slider-wrap';
     row.append(label, slider, readout, autoBtn, lock, rerollBtn);
     wrap.append(row, autoRow);
-    this.rows[name] = { slider, readout, range };
+    this.rows[name] = { slider, readout, range, lockBtn: lock };
     return wrap;
+  }
+
+  /** Set a param's lock from code (snapshot load); reuses the button handler. */
+  setLock(name, locked) {
+    if (this.rows[name] && this.locks[name] !== !!locked) {
+      this.rows[name].lockBtn.click();
+    }
   }
 
   /** Set a param from code (reroll etc.): updates UI, center and uniform. */

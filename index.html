@@ -56,6 +56,23 @@
     }
     #sheet canvas:hover { border-color: #fafbf6; }
     #sheet canvas.original { border-color: #8be9b6; cursor: default; }
+    #archive {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;
+      max-height: 180px; overflow-y: auto;
+    }
+    #archive:empty { display: none; }
+    .archive-item { position: relative; }
+    .archive-item img {
+      width: 100%; display: block; cursor: pointer;
+      image-rendering: pixelated; border: 1px solid #565a75; box-sizing: border-box;
+    }
+    .archive-item img:hover { border-color: #fafbf6; }
+    .archive-del {
+      position: absolute; top: 0; right: 0; display: none;
+      background: rgba(15, 15, 27, 0.85); border: none; color: #ff5566;
+      cursor: pointer; padding: 0 3px; font-size: 10px;
+    }
+    .archive-item:hover .archive-del { display: block; }
 
     #status {
       position: fixed; left: 8px; bottom: 8px;
@@ -74,8 +91,14 @@
       <button id="reroll-all" class="slider-btn" title="reroll all unlocked params">⟳ all</button>
       <button id="coords" class="slider-btn" title="coordinates: cartesian → polar → toroidal">cart</button>
       <button id="make-sheet" class="slider-btn" title="3×3 contact sheet: 8 const_tweak variants">3×3</button>
+      <button id="save" class="slider-btn" title="save snapshot to archive">save</button>
+      <button id="permalink" class="slider-btn" title="copy permalink URL">link</button>
+      <button id="export" class="slider-btn" title="download archive as JSON">exp</button>
+      <button id="import" class="slider-btn" title="import archive JSON">imp</button>
+      <input id="import-file" type="file" accept=".json,application/json" hidden />
     </div>
     <div id="sheet"></div>
+    <div id="archive"></div>
   </div>
   <div id="status">loading…</div>
   <script type="module" src="/src/main.js"></script>

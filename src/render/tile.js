@@ -24,4 +24,14 @@ export class TileRenderer {
     this.renderer.render(state);
     ctx.drawImage(this.canvas, 0, 0, ctx.canvas.width, ctx.canvas.height);
   }
+
+  /** Render and return a small PNG data URL (64×64 by default, per §4). */
+  thumbnail(state, size = 64) {
+    this.renderer.render(state);
+    const small = document.createElement('canvas');
+    small.width = size;
+    small.height = size;
+    small.getContext('2d').drawImage(this.canvas, 0, 0, size, size);
+    return small.toDataURL('image/png');
+  }
 }

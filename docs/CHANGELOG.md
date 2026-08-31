@@ -13,3 +13,15 @@ formula editor with debounce and caret error display. 51 tests green. §13 decid
 
 **besluit:** sliders done; next step = coordinate toggle (cartesian/polar/toroidal),
 then 3×3 contact sheet with const_tweak variants.
+
+## 2026-08-31 — Session 1 (continued)
+
+**status:** v1 nearly complete.
+Added: per-slider LFO automation (sine/tri/walk, rate/depth, lock pauses);
+coordinate toggle via u_coords uniform; 3×3 contact sheet (const_tweak variants,
+click promotes); snapshot save/load (schema §4, zero stats until v2), archive
+strip with thumbs + delete, JSON export/import (merge, ids win), lz-string
+permalinks (verified across a full page reload). 78 tests green.
+
+**besluit:** remaining v1 = family picker (§8, non-feedback families) + one
+evening of real use (DoD). Stats stay zeroed until the v2 filter lands.
