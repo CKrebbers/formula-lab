@@ -59,6 +59,7 @@ editor.apply();
 const start = performance.now();
 function frame(now) {
   state.time = (now - start) / 1000;
+  sliders.tick(state.time);
   renderer.render(state);
   requestAnimationFrame(frame);
 }

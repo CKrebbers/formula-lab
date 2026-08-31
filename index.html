@@ -26,8 +26,16 @@
       border: 1px solid rgba(255, 85, 102, 0.4);
     }
     #sliders { display: flex; flex-direction: column; gap: 2px; }
+    .slider-wrap { display: flex; flex-direction: column; }
     .slider-row { display: flex; align-items: center; gap: 6px; }
     .slider-row.locked { opacity: 0.55; }
+    .slider-row.automated .slider-name { color: #8be9b6; }
+    .auto-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 2px 0 4px 30px; color: #8be9b6;
+    }
+    .auto-label { font-size: 10px; }
+    .mini-range { width: 90px; accent-color: #8be9b6; }
     .slider-name { width: 24px; text-align: right; color: #fafbf6; }
     .slider-row input[type="range"] { flex: 1; accent-color: #c6b7be; }
     .slider-value { width: 60px; text-align: right; }
