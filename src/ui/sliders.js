@@ -10,6 +10,8 @@ import {
 } from '../core/automate.js';
 
 const GLIDE_SECONDS = 0.5; // discrete changes ease in — no visual jumps
+const EDGE_EXTEND_FACTOR = 0.6;  // pushing an end grows the range by 60%
+const EDGE_EXTEND_COOLDOWN = 350; // ms between ratchet steps while pinned
 
 export class SliderPanel {
   /**
@@ -102,11 +104,28 @@ export class SliderPanel {
 
     slider.addEventListener('input', () => {
       delete this.glides[name]; // dragging takes over: direct, no easing lag
+      this.maybeExtendEdge(name); // pushing against an end grows the range
       const v = parseFloat(slider.value);
       auto.center = v; // manual position is the automation's center
       readout.textContent = formatValue(v);
       this.onChange(name, v);
     });
+
+    // double-click: re-center the range tightly around the current value
+    slider.addEventListener('dblclick', () => {
+      const v = parseFloat(slider.value);
+      const r = inferRange(v);
+      this.setRange(name, r.min, r.max);
+    });
+
+    // scroll on the slider: zoom the range in/out around the current value
+    slider.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const v = parseFloat(slider.value);
+      const r = this.rows[name].range;
+      const half = ((r.max - r.min) * (e.deltaY > 0 ? 1.25 : 0.8)) / 2;
+      this.setRange(name, v - half, v + half);
+    }, { passive: false });
 
     autoBtn.addEventListener('click', () => {
       auto.mode = nextMode(auto.mode);
@@ -134,8 +153,48 @@ export class SliderPanel {
     this.rows[name] = {
       slider, readout, range, lockBtn: lock,
       autoBtn, autoRow, rateInput, depthInput, rateLabel, rowEl: row,
+      lastExtend: 0,
     };
+    this.setRange(name, range.min, range.max); // sets bounds + tooltip
     return wrap;
+  }
+
+  /**
+   * Live range bounds: the slider's extremes are movable, not sacred.
+   * Everything reading ranges() (automation depth, glitch/mods clamps)
+   * follows along because the range object mutates in place.
+   */
+  setRange(name, min, max) {
+    const row = this.rows[name];
+    if (!row || !(max > min)) return;
+    row.range.min = min;
+    row.range.max = max;
+    row.range.step = (max - min) / 400;
+    const v = parseFloat(row.slider.value);
+    row.slider.min = min;
+    row.slider.max = max;
+    row.slider.step = row.range.step;
+    row.slider.value = Math.min(max, Math.max(min, v));
+    row.slider.title =
+      `range ${formatValue(min)} … ${formatValue(max)}\n` +
+      'push an end to extend · double-click to re-center · scroll to zoom';
+  }
+
+  /** Ratchet: while the thumb is pinned to an end, grow that side. */
+  maybeExtendEdge(name) {
+    const row = this.rows[name];
+    const r = row.range;
+    const v = parseFloat(row.slider.value);
+    const now = performance.now();
+    if (now - row.lastExtend < EDGE_EXTEND_COOLDOWN) return;
+    const span = r.max - r.min;
+    if (v >= r.max - r.step) {
+      this.setRange(name, r.min, r.max + span * EDGE_EXTEND_FACTOR);
+      row.lastExtend = now;
+    } else if (v <= r.min + r.step) {
+      this.setRange(name, r.min - span * EDGE_EXTEND_FACTOR, r.max);
+      row.lastExtend = now;
+    }
   }
 
   /** Sync one row's automation UI from its auto state. */
@@ -190,6 +249,15 @@ export class SliderPanel {
   setValue(name, v, { smooth = true } = {}) {
     const row = this.rows[name];
     if (!row) return;
+    // a target outside the current range widens it (with 10% headroom)
+    if (v < row.range.min || v > row.range.max) {
+      const pad = (row.range.max - row.range.min) * 0.1;
+      this.setRange(
+        name,
+        Math.min(row.range.min, v - pad),
+        Math.max(row.range.max, v + pad)
+      );
+    }
     if (!smooth) {
       delete this.glides[name];
       row.slider.value = v;

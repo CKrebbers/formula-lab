@@ -130,3 +130,13 @@ intended. Real-music tuning of envelope constants is Clay's ear-work.
 nothing lost); center and phase stay with their param, the abandoned param
 settles on its center. Slider automation UI refactored around refreshAutoUI.
 Verified live: sine walked a→b→c carrying its settings. 180 tests.
+
+## 2026-08-31 — Session 1 (live slider ranges)
+
+**status:** slider extremes are movable, directly on the slider: push against
+an end and it ratchets outward (+60% per 350ms while pinned); double-click
+re-centers the range tightly around the current value; scroll wheel zooms the
+range in/out. Out-of-range setValue targets (rerolls, promotes, loads) widen
+the range automatically with 10% headroom. Automation depth and mod/glitch
+clamps follow the live range. Verified live: 28.8→53.4→92.9 ratchet,
+dblclick re-center, wheel zoom.
