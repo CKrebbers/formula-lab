@@ -15,9 +15,18 @@ void main() {
 export class GLError extends Error {}
 
 export class Renderer {
-  /** @param {HTMLCanvasElement} canvas */
-  constructor(canvas) {
+  /**
+   * @param {HTMLCanvasElement} canvas
+   * @param {{width?: number, height?: number}} opts — pass a fixed size for
+   *   offscreen use (tiles); otherwise the buffer tracks CSS size × DPR.
+   */
+  constructor(canvas, opts = {}) {
     this.canvas = canvas;
+    this.fixedSize = !!(opts.width && opts.height);
+    if (this.fixedSize) {
+      canvas.width = opts.width;
+      canvas.height = opts.height;
+    }
     const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: false });
     if (!gl) throw new GLError('WebGL2 is not available in this browser');
     this.gl = gl;
@@ -41,6 +50,7 @@ export class Renderer {
       time: gl.getUniformLocation(program, 'u_time'),
       resolution: gl.getUniformLocation(program, 'u_resolution'),
       mouse: gl.getUniformLocation(program, 'u_mouse'),
+      coords: gl.getUniformLocation(program, 'u_coords'),
     };
     this.paramLocations = {};
     for (const name of paramNames) {
@@ -50,6 +60,7 @@ export class Renderer {
 
   /** Resize the drawing buffer to match CSS size × devicePixelRatio (capped for the 2014 GPU). */
   resize() {
+    if (this.fixedSize) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const width = Math.floor(this.canvas.clientWidth * dpr);
     const height = Math.floor(this.canvas.clientHeight * dpr);
@@ -61,7 +72,7 @@ export class Renderer {
 
   /**
    * Draw one frame.
-   * @param {{ time: number, mouse: [number, number], params?: Record<string, number> }} state
+   * @param {{ time: number, mouse: [number, number], params?: Record<string, number>, coords?: number }} state
    */
   render(state) {
     const gl = this.gl;
@@ -72,6 +83,7 @@ export class Renderer {
     gl.uniform1f(this.uniforms.time, state.time);
     gl.uniform2f(this.uniforms.resolution, this.canvas.width, this.canvas.height);
     gl.uniform2f(this.uniforms.mouse, state.mouse[0], state.mouse[1]);
+    gl.uniform1i(this.uniforms.coords, state.coords ?? 0);
     if (state.params) {
       for (const [name, loc] of Object.entries(this.paramLocations || {})) {
         gl.uniform1f(loc, state.params[name] ?? 0);

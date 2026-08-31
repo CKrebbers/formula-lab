@@ -203,13 +203,20 @@ precision highp float;
 uniform float u_time;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
+uniform int u_coords; // 0 = cartesian, 1 = polar, 2 = toroidal
 ${paramUniforms}
 out vec4 outColor;
 ${HELPERS}
 void main() {
   vec2 uv = (2.0 * gl_FragCoord.xy - u_resolution) / min(u_resolution.x, u_resolution.y);
-  float x = uv.x;
-  float y = uv.y;
+  vec2 p = uv;
+  if (u_coords == 1) {
+    p = vec2(length(uv), atan(uv.y, uv.x) * 0.3183098861837907); // (r, th/pi)
+  } else if (u_coords == 2) {
+    p = vec2(sin(3.141592653589793 * uv.x), sin(3.141592653589793 * uv.y)); // seamless wrap
+  }
+  float x = p.x;
+  float y = p.y;
   float t = u_time;
   float r = length(uv);
   float th = atan(uv.y, uv.x);

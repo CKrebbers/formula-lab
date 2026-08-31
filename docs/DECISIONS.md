@@ -29,6 +29,14 @@
     typed constant; wide enough to explore, revisit if it feels wrong in practice.
 13. **Formula Lab gets its own git repo** inside `1. Projects/Visual app` — the Desktop
     repo gitignores all PARA folders, so committing there is impossible by design.
+14a. **Coordinate remap runs in-shader via `uniform int u_coords`** — one compiled
+    shader serves all three modes, toggling never recompiles. Polar feeds the formula
+    `(r, th/π)`; toroidal wraps via `(sin(πx), sin(πy))` for seamless tiling. Raw `r`/`th`
+    stay derived from the untransformed uv, so polar mode doesn't double-transform them.
+14b. **Contact sheet reuses one offscreen GL context** (`render/tile.js`, 128×128):
+    same shader, 9 param sets, blitted into 2D canvases. Tiles are frozen at generation
+    time (no 9 live animations — the 2014 GPU thanks us). const_tweak perturbs every
+    unlocked param with σ·max(1,|v|) so large constants drift proportionally.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

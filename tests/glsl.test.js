@@ -90,6 +90,14 @@ describe('glsl: full shader (golden structure)', () => {
     expect(fragmentSource).toContain('fl_fbm(vec2(x + warp.x, y + warp.y)');
   });
 
+  it('remaps coordinates via the u_coords uniform', () => {
+    const { fragmentSource } = transpile(parse('sin(x)'));
+    expect(fragmentSource).toContain('uniform int u_coords;');
+    expect(fragmentSource).toContain('if (u_coords == 1)');   // polar (r, th/pi)
+    expect(fragmentSource).toContain('else if (u_coords == 2)'); // toroidal wrap
+    expect(fragmentSource).toContain('float x = p.x;');
+  });
+
   it('declares every formula variable', () => {
     const { fragmentSource } = transpile(parse('x + y + t + r + th + mx + my + i'));
     for (const decl of ['float x =', 'float y =', 'float t =', 'float r =',

@@ -45,7 +45,17 @@
     }
     .slider-btn:hover:not(:disabled) { border-color: #c6b7be; color: #fafbf6; }
     .slider-btn:disabled { opacity: 0.4; cursor: default; }
-    #reroll-all { align-self: flex-start; }
+    #actions { display: flex; gap: 6px; }
+    #sheet {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+    }
+    #sheet:empty { display: none; }
+    #sheet canvas {
+      width: 100%; display: block; cursor: pointer;
+      image-rendering: pixelated; border: 1px solid #565a75; box-sizing: border-box;
+    }
+    #sheet canvas:hover { border-color: #fafbf6; }
+    #sheet canvas.original { border-color: #8be9b6; cursor: default; }
 
     #status {
       position: fixed; left: 8px; bottom: 8px;
@@ -60,7 +70,12 @@
     <textarea id="formula" rows="3" spellcheck="false"></textarea>
     <pre id="error" hidden></pre>
     <div id="sliders"></div>
-    <button id="reroll-all" class="slider-btn" title="reroll all unlocked params">⟳ all</button>
+    <div id="actions">
+      <button id="reroll-all" class="slider-btn" title="reroll all unlocked params">⟳ all</button>
+      <button id="coords" class="slider-btn" title="coordinates: cartesian → polar → toroidal">cart</button>
+      <button id="make-sheet" class="slider-btn" title="3×3 contact sheet: 8 const_tweak variants">3×3</button>
+    </div>
+    <div id="sheet"></div>
   </div>
   <div id="status">loading…</div>
   <script type="module" src="/src/main.js"></script>
