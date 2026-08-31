@@ -64,8 +64,8 @@ export class ContactSheet {
       if (!made) continue;
       try {
         const { ast: paramAst, params: childParams } = extractParams(made.ast);
-        const { fragmentSource, paramNames } = transpile(paramAst);
-        tileRenderer.setShader(fragmentSource, paramNames);
+        const { fragmentSource, paramNames, usesPrev } = transpile(paramAst);
+        tileRenderer.setShader(fragmentSource, paramNames, usesPrev);
         const childState = { ...state, params: childParams };
 
         // §7 filter on palette-free renders at t=0 and t=1
@@ -92,7 +92,8 @@ export class ContactSheet {
     }
 
     // restore the parent's shader for the center tile and everything after
-    tileRenderer.setShader(opts.parentShader.fragmentSource, opts.parentShader.paramNames);
+    tileRenderer.setShader(
+      opts.parentShader.fragmentSource, opts.parentShader.paramNames, opts.parentShader.usesPrev);
 
     candidates.sort((a, b) => b.novelty - a.novelty);
     this.clear();

@@ -2,6 +2,25 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-09-01 — prev(x, y): the image feeds on itself (roadmap D2, first half)
+
+**status:** every pixel was a pure f(x, y, t) with no memory; it now has one.
+`prev(x, y)` is whitelisted (arity 2), transpiles to a sampler read of the
+previous frame in the same aspect-corrected space as x/y, and returns the
+previous CONTINUOUS scalar (-1..1), not the palette-mapped color. New
+src/render/feedback.js: ping-pong textures + blitFramebuffer, allocated only
+for formulas that use prev(). Resets on formula change, resize and display
+crossfade. Tiles/thumbs/stats warm 6 frames before capture. Formulas without
+prev() are byte-identical to before (alpha stays 1.0). 205 tests.
+
+Measured on the GPU, not assumed: the first design (feeding back the canvas
+color) collapsed to a fixed point in two frames because of the 4-color palette
+quantizer — see ADR #22/#23 for the measurement and the fix.
+
+**besluit:** s_ent / s_sym (previous-frame stats as formula variables) is the
+remaining half of D2 and was deliberately not started. Next formula-ceiling
+break after this: attractors (CPU histogram → texture), not B1.
+
 ## 2026-08-31 — Session 1 (iteration functions + strategy rotation)
 
 **status:** the pattern-breakers: julia/ship/kali/orbit (arity 5, n as live

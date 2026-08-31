@@ -66,6 +66,16 @@ describe('parser: valid formulas', () => {
     expect(validate(ast).ok).toBe(true);
   });
 
+  it('parses prev(x, y) — the previous-frame sampler', () => {
+    const ast = parse('mix(sin(x * y + t), prev(x, y), 0.85)');
+    expect(validate(ast).ok).toBe(true);
+    expect(ast.args[1]).toEqual({
+      type: 'call',
+      name: 'prev',
+      args: [{ type: 'var', name: 'x' }, { type: 'var', name: 'y' }],
+    });
+  });
+
   it('parses length with 1 or 2 args', () => {
     expect(parse('length(x)').args).toHaveLength(1);
     expect(parse('length(x, y)').args).toHaveLength(2);
@@ -109,6 +119,13 @@ describe('parser: invalid formulas report exact columns', () => {
     const e = errorAt('clamp(x, 0)');
     expect(e.message).toContain("expects 3 argument(s), got 2");
     expect(e.column).toBe(1);
+  });
+
+  it('rejects prev with the wrong arity, at its column', () => {
+    const e = errorAt('sin(x) + prev(x)');
+    expect(e.message).toContain("'prev' expects 2 argument(s), got 1");
+    expect(e.column).toBe(10);
+    expect(errorAt('prev(x, y, t)').message).toContain('got 3');
   });
 
   it('rejects unbalanced parens', () => {

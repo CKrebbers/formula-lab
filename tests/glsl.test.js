@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '../src/core/parser.js';
-import { transpile, outputMode, glslFloat, TranspileError } from '../src/core/glsl.js';
+import { transpile, outputMode, usesPrev, glslFloat, TranspileError } from '../src/core/glsl.js';
 
 function expr(source) {
   return transpile(parse(source)).expression;
@@ -99,6 +99,33 @@ describe('glsl: full shader (golden structure)', () => {
     const { fragmentSource } = transpile(parse('vec2(sin(t), cos(t))'));
     expect(fragmentSource).toContain('vec2 warp = vec2(sin(t), cos(t));');
     expect(fragmentSource).toContain('fl_fbm(vec2(x + warp.x, y + warp.y)');
+  });
+
+  it('emits the feedback path only when prev() is used', () => {
+    const plain = transpile(parse('sin(x * y + t)'));
+    expect(plain.usesPrev).toBe(false);
+    expect(plain.fragmentSource).not.toContain('u_prev');
+    expect(plain.fragmentSource).not.toContain('fl_prev');
+
+    const feeding = transpile(parse('mix(sin(x * y + t), prev(x, y), 0.85)'));
+    expect(feeding.usesPrev).toBe(true);
+    expect(feeding.fragmentSource).toContain('uniform sampler2D u_prev;');
+    expect(feeding.fragmentSource).toContain('float fl_prev(float px, float py)');
+    expect(feeding.expression).toContain('fl_prev(x, y)');
+    // samples in the same aspect-corrected space as the uv line in main()
+    expect(feeding.fragmentSource).toContain('min(u_resolution.x, u_resolution.y)');
+  });
+
+  it('detects prev at any depth, and leaves prev-free formulas untouched', () => {
+    expect(usesPrev(parse('prev(x, y)'))).toBe(true);
+    expect(usesPrev(parse('sin(fbm(prev(x, y), y, 4.0))'))).toBe(true);
+    expect(usesPrev(parse('-prev(x, y)'))).toBe(true);
+    expect(usesPrev(parse('x + prev(x, y) * 2.0'))).toBe(true);
+    expect(usesPrev(parse('vec3(prev(x, y), 0.0, 0.0)'))).toBe(true);
+    expect(usesPrev(parse('sin(x * y + t) + fbm(x, y, 4.0)'))).toBe(false);
+    // a prev-free formula transpiles byte-identically to the pre-feedback build
+    const before = transpile(parse('sin(x * y * 4.0 + t) + cos(3.0 * x)')).fragmentSource;
+    expect(before).not.toMatch(/prev/);
   });
 
   it('embeds all palettes and the tone/palette/smooth uniforms', () => {

@@ -55,7 +55,7 @@ function initPanel() {
   let currentMode = 'scalar';
   let lastAst = null;          // raw parsed AST (num literals)
   let currentParamAst = null;  // AST with param nodes
-  let currentShader = null;    // { fragmentSource, paramNames }
+  let currentShader = null;    // { fragmentSource, paramNames, usesPrev }
   let currentFamily = null;
   let currentParentIds = [];   // lineage chain: last saved/loaded snapshot
   let pendingOrigin = null;    // 'mutate' | 'crossover' when promoted from a sheet
@@ -119,13 +119,17 @@ function initPanel() {
     const parsed = parse(source);
     const { ast, params } = extractParams(parsed);
     const compiled = transpile(ast);
-    renderer.setFragmentShader(compiled.fragmentSource, compiled.paramNames);
-    tileRenderer.setShader(compiled.fragmentSource, compiled.paramNames);
+    renderer.setFragmentShader(compiled.fragmentSource, compiled.paramNames, compiled.usesPrev);
+    tileRenderer.setShader(compiled.fragmentSource, compiled.paramNames, compiled.usesPrev);
     state.params = { ...params };
     currentMode = compiled.mode;
     lastAst = parsed;
     currentParamAst = ast;
-    currentShader = { fragmentSource: compiled.fragmentSource, paramNames: compiled.paramNames };
+    currentShader = {
+      fragmentSource: compiled.fragmentSource,
+      paramNames: compiled.paramNames,
+      usesPrev: compiled.usesPrev,
+    };
     sliders.rebuild(params);
     sheet.clear();
     updateStatus();
@@ -260,7 +264,7 @@ function initPanel() {
       const parsed = parse(source);
       const { ast, params } = extractParams(parsed);
       const compiled = transpile(ast);
-      tileRenderer.setShader(compiled.fragmentSource, compiled.paramNames);
+      tileRenderer.setShader(compiled.fragmentSource, compiled.paramNames, compiled.usesPrev);
       const coordsIdx = Math.max(0, COORD_NAMES.indexOf(coords));
       const candState = {
         time: 0, mouse: [0, 0], coords: coordsIdx, params,
@@ -285,7 +289,10 @@ function initPanel() {
     } catch {
       return null;
     } finally {
-      if (currentShader) tileRenderer.setShader(currentShader.fragmentSource, currentShader.paramNames);
+      if (currentShader) {
+        tileRenderer.setShader(
+          currentShader.fragmentSource, currentShader.paramNames, currentShader.usesPrev);
+      }
     }
   }
 

@@ -72,6 +72,34 @@
     15% / random birth 10% (cold start: family 40 / birth 30 / mutate 30). Tick = 900ms,
     gentle on the 2014 GPU. Elites persist in their own localStorage key; the main view
     follows every discovery while auto is on; typing or picking a cell hands control back.
+22. **prev(x, y) uses a ping-pong FBO, not a copy of the canvas.** First attempt was
+    one texture + `copyTexSubImage2D` after the draw (read and write never overlap
+    within a pass, so no ping-pong is strictly needed). Measured on the GPU: it does
+    not work, because the canvas holds the PALETTE-MAPPED color — feeding that back
+    puts the signal through a 4-color quantizer, only ~2 bits of state per pixel
+    survive, and the image locks into a fixed point within two frames (verified:
+    mean luminance constant, zero difference vs. a single-shot render). So: draw
+    into an offscreen RGBA texture while sampling the other one, `blitFramebuffer`
+    to the canvas, swap. Same measurement after the change: mean 15 → 111 over 40
+    frames, 70/255 average difference vs. single-shot.
+23. **The feedback texture carries the formula's continuous scalar in ALPHA**, and
+    `prev()` reads `.a * 2.0 - 1.0`. Keeps prev() in the language's -1..1 scalar
+    convention, is immune to palette quantization and to palette/tone changes, and
+    makes plain `prev(x, y)` a hold rather than a runaway. vec3-mode formulas have
+    no scalar, so they feed back their own luminance. 8-bit storage means values
+    outside -1..1 are clamped in the feedback path. The GL context is created with
+    `alpha: false` so this alpha never reaches compositing. Formulas that do not
+    call prev() still emit `vec4(color, 1.0)` and are byte-identical to before.
+24. **Tiles/thumbs/stats warm the feedback buffer instead of disabling it**:
+    reset → 6 draws at the capture's own t → capture. Deterministic (every call
+    starts from black) and trivial at 128², and it keeps trail formulas visible in
+    contact sheets, thumbnails and the §7 stats instead of evaluating as flat black
+    and being filtered out of the evolutionary pool. (func_swap can produce prev(),
+    so trail formulas do enter that pool.)
+25. **prev() out-of-frame sampling clamps** (CLAMP_TO_EDGE), it does not wrap:
+    a warp that walks off the edge smears the border rather than teleporting to the
+    opposite side. The buffer resets to black, so prev() reads -1 on the first
+    frame, after a formula change and after a resize.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

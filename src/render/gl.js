@@ -1,6 +1,8 @@
 // WebGL2 context, shader compile, uniforms, fullscreen quad.
 // Target: WebGL2 only (2014 Radeon R9 M295X must cope). No WebGPU.
 
+import { FeedbackBuffer } from './feedback.js';
+
 const VERTEX_SOURCE = `#version 300 es
 void main() {
   // Single oversized triangle covering the viewport — no vertex buffer needed.
@@ -27,12 +29,20 @@ export class Renderer {
       canvas.width = opts.width;
       canvas.height = opts.height;
     }
-    const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: false });
+    // alpha: false — the feedback path writes the formula's continuous scalar
+    // into outColor.a, which must never reach compositing (see feedback.js)
+    const gl = canvas.getContext('webgl2', {
+      antialias: false,
+      preserveDrawingBuffer: false,
+      alpha: false,
+    });
     if (!gl) throw new GLError('WebGL2 is not available in this browser');
     this.gl = gl;
     this.program = null;
     this.uniforms = {};
     this.vao = gl.createVertexArray();
+    this.usesPrev = false;
+    this.feedback = null; // allocated lazily, only for formulas that use prev()
   }
 
   /**
@@ -40,12 +50,15 @@ export class Renderer {
    * stays active and a GLError with the shader log is thrown.
    * @param {string} fragmentSource
    * @param {string[]} paramNames — extracted constants, bound as u_<name> float uniforms
+   * @param {boolean} usesPrev — formula samples the previous frame (transpile())
    */
-  setFragmentShader(fragmentSource, paramNames = []) {
+  setFragmentShader(fragmentSource, paramNames = [], usesPrev = false) {
     const gl = this.gl;
     const program = linkProgram(gl, VERTEX_SOURCE, fragmentSource);
     if (this.program) gl.deleteProgram(this.program);
     this.program = program;
+    this.usesPrev = usesPrev;
+    this.resetFeedback(); // a new formula never inherits the old image
     this.uniforms = {
       time: gl.getUniformLocation(program, 'u_time'),
       resolution: gl.getUniformLocation(program, 'u_resolution'),
@@ -55,11 +68,17 @@ export class Renderer {
       palette: gl.getUniformLocation(program, 'u_palette'),
       smooth: gl.getUniformLocation(program, 'u_smooth'),
       tone: gl.getUniformLocation(program, 'u_tone'),
+      prev: gl.getUniformLocation(program, 'u_prev'),
     };
     this.paramLocations = {};
     for (const name of paramNames) {
       this.paramLocations[name] = gl.getUniformLocation(program, `u_${name}`);
     }
+  }
+
+  /** Wipe the previous-frame buffer to black (formula change, crossfade start). */
+  resetFeedback() {
+    this.feedback?.reset();
   }
 
   /** Resize the drawing buffer to match CSS size × devicePixelRatio (capped for the 2014 GPU). */
@@ -98,7 +117,20 @@ export class Renderer {
       }
     }
     gl.bindVertexArray(this.vao);
+
+    if (!this.usesPrev) {
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      return;
+    }
+    // feedback path: draw offscreen while sampling the previous frame, then
+    // blit to the canvas and swap. A size change reallocates = implicit reset.
+    this.feedback ??= new FeedbackBuffer(gl);
+    this.feedback.ensureSize(this.canvas.width, this.canvas.height);
+    this.feedback.bindPrevious(0);
+    gl.uniform1i(this.uniforms.prev, 0);
+    this.feedback.bindWrite();
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    this.feedback.present();
   }
 
   /** Read the just-rendered frame back (call in the same task as render()). */

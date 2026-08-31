@@ -107,6 +107,7 @@ function emitCall(node, isTopLevel) {
     case 'kali':
     case 'orbit':
     case 'fold':
+    case 'prev':
       return `fl_${node.name}(${args.join(', ')})`;
     default:
       return `${node.name}(${args.join(', ')})`;
@@ -131,6 +132,20 @@ export function collectParams(node, out = []) {
       break;
   }
   return out;
+}
+
+/** Does this AST sample the previous frame? Decides the feedback path. */
+export function usesPrev(node) {
+  switch (node.type) {
+    case 'neg':
+      return usesPrev(node.arg);
+    case 'bin':
+      return usesPrev(node.left) || usesPrev(node.right);
+    case 'call':
+      return node.name === 'prev' || node.args.some(usesPrev);
+    default:
+      return false;
+  }
 }
 
 /** Detect output mode from the top-level node. */
@@ -272,8 +287,27 @@ vec3 fl_palette(float v) {
 `;
 
 /**
+ * prev(x, y) — previous frame. Only emitted when the formula uses it, so
+ * every existing formula compiles to exactly the shader it did before.
+ *
+ * The UV mapping inverts the `uv` line in main(), so prev() reads the same
+ * aspect-corrected space the formula's x/y live in. It reads the ALPHA
+ * channel, where the feedback pass stored the previous frame's continuous
+ * scalar (see feedback.js / ADR #23) — sampling the visible RGB would run the
+ * signal through the 4-color palette quantizer and collapse in two frames.
+ * Range is the usual -1..1; an empty buffer reads -1 (black).
+ */
+const PREV_HELPER = /* glsl */ `
+float fl_prev(float px, float py) {
+  vec2 uv = (vec2(px, py) * min(u_resolution.x, u_resolution.y) + u_resolution)
+          / (2.0 * u_resolution);
+  return texture(u_prev, uv).a * 2.0 - 1.0;
+}
+`;
+
+/**
  * Transpile a validated AST into a complete fragment shader.
- * Returns { fragmentSource, mode, expression, paramNames }.
+ * Returns { fragmentSource, mode, expression, paramNames, usesPrev }.
  */
 export function transpile(ast) {
   const check = validate(ast);
@@ -283,6 +317,18 @@ export function transpile(ast) {
   const expression = emit(ast, true);
   const paramNames = collectParams(ast);
   const paramUniforms = paramNames.map((n) => `uniform float u_${n};`).join('\n');
+  const needsPrev = usesPrev(ast);
+  const prevUniform = needsPrev ? 'uniform sampler2D u_prev;\n' : '';
+  const prevHelper = needsPrev ? PREV_HELPER : '';
+  // Alpha carries the continuous scalar for the next frame's prev() — clamped
+  // because the buffer is 8-bit. vec3 mode has no scalar, so it feeds back its
+  // own luminance. Without prev() the alpha stays 1.0 and the shader is
+  // byte-for-byte what it was before feedback existed.
+  const feedbackAlpha = !needsPrev
+    ? '1.0'
+    : mode === 'vec3'
+      ? 'clamp(dot(color, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0)'
+      : 'clamp(v * 0.5 + 0.5, 0.0, 1.0)';
 
   let body;
   if (mode === 'vec3') {
@@ -311,9 +357,9 @@ uniform int u_raw;     // 1 = skip the palette LUT (continuous grayscale, for st
 uniform int u_palette; // LUT index (see PALETTES)
 uniform int u_smooth;  // 0 = quantized pixel-art steps, 1 = interpolated
 uniform int u_tone;    // 0 = clamp, 1 = wrap, 2 = fold
-${paramUniforms}
+${prevUniform}${paramUniforms}
 out vec4 outColor;
-${HELPERS}
+${HELPERS}${prevHelper}
 void main() {
   vec2 uv = (2.0 * gl_FragCoord.xy - u_resolution) / min(u_resolution.x, u_resolution.y);
   vec2 p = uv;
@@ -332,9 +378,9 @@ void main() {
   float i = gl_FragCoord.x + gl_FragCoord.y * u_resolution.x;
 
 ${body}
-  outColor = vec4(color, 1.0);
+  outColor = vec4(color, ${feedbackAlpha});
 }
 `;
 
-  return { fragmentSource, mode, expression, paramNames };
+  return { fragmentSource, mode, expression, paramNames, usesPrev: needsPrev };
 }

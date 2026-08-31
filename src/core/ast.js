@@ -31,6 +31,8 @@ export const FUNCTIONS = {
   noise: [2], fbm: [3], worley: [2], hash: [2],
   // iterated maps (GLSL helpers, capped loops; n = iterations like fbm octaves)
   julia: [5], ship: [5], kali: [5], orbit: [5],
+  // previous frame (feedback buffer) — luminance at formula coords
+  prev: [2],
   // fold(v) = abs(mod(v,2)-1) — was reserved in §5, now real
   fold: [1],
   // output constructors

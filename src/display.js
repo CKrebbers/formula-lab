@@ -39,8 +39,10 @@ export function initDisplay() {
     const back = layers[1 - frontIdx];
     try {
       const { ast, params: extracted } = extractParams(parse(source));
-      const { fragmentSource, paramNames } = transpile(ast);
-      back.renderer.setFragmentShader(fragmentSource, paramNames);
+      const { fragmentSource, paramNames, usesPrev } = transpile(ast);
+      // setFragmentShader resets the incoming layer's feedback, so a crossfade
+      // never starts from the previous formula's trails
+      back.renderer.setFragmentShader(fragmentSource, paramNames, usesPrev);
       back.live = true;
       state.params = { ...extracted, ...params };
       state.coords = coords ?? 0;
