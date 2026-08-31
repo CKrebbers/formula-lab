@@ -31,6 +31,9 @@ import { substituteParams } from './core/constants.js';
 import { print } from './core/print.js';
 import { lhsParamSets, randomExpr } from './search/sample.js';
 import { AudioEngine } from './audio/engine.js';
+import { FamilyPacks } from './families/packs.js';
+import { buildFamilyPrompt } from './families/prompt.js';
+import { PacksPanel } from './ui/packs.js';
 
 const VIEW = new URLSearchParams(location.search).get('view');
 if (VIEW === 'display') {
@@ -66,6 +69,13 @@ function initPanel() {
   const sync = new SyncChannel();
   const modStack = new ModStack();
   const audioEngine = new AudioEngine();
+  const packs = new FamilyPacks(localStorage);
+
+  const allFamilies = () => [...FAMILIES, ...packs.enabledFamilies()];
+  const familyGroups = () => [
+    { label: 'built-in', families: FAMILIES },
+    ...packs.list().filter((p) => p.enabled).map((p) => ({ label: p.name, families: p.families })),
+  ];
 
   const sliders = new SliderPanel(el('sliders'), (name, value) => {
     state.params[name] = value;
@@ -349,7 +359,24 @@ function initPanel() {
   }
 
   const editor = initEditor(textarea, el('error'), applyFormula);
-  initFamilyPicker(el('family'), loadFamily);
+  const familyPicker = initFamilyPicker(el('family'), loadFamily, familyGroups);
+
+  const packsPanel = new PacksPanel(el('packs'), packs, {
+    onChange() {
+      familyPicker.refresh();
+      explorer.families = allFamilies(); // zero-player explores new generations too
+    },
+    buildPrompt: () => buildFamilyPrompt({
+      snapshots: archive.list(),
+      elites: elites.all(),
+      packNames: packs.list().map((p) => p.name),
+    }),
+  });
+  el('packs-toggle').addEventListener('click', () => {
+    el('packs').hidden = !el('packs').hidden;
+    packsPanel.refresh();
+  });
+  explorer.families = allFamilies();
 
   textarea.addEventListener('input', () => {
     stopAuto(); // typing takes the controls back from the zero-player

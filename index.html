@@ -80,6 +80,18 @@
     .mod-toggle { width: 64px; }
     .mod-toggle.active { border-color: #8be9b6; color: #8be9b6; }
     #mods .mini-range { width: 80px; }
+    #packs {
+      display: flex; flex-direction: column; gap: 4px;
+      border: 1px solid #565a75; padding: 6px;
+    }
+    #packs textarea {
+      width: 100%; box-sizing: border-box; resize: vertical;
+      background: #0f0f1b; color: #fafbf6; border: 1px solid #565a75;
+      padding: 4px 6px; outline: none; font-size: 11px;
+    }
+    .pack-row { display: flex; align-items: center; gap: 6px; }
+    .pack-row span { flex: 1; }
+    .packs-status { font-size: 10px; color: #8be9b6; min-height: 12px; }
     body.display #panel { display: none; }
     body.display .display-layer {
       position: fixed; inset: 0; width: 100vw; height: 100vh;
@@ -163,6 +175,7 @@
       <button id="audio-mic" class="slider-btn" title="microphone, or a loopback device like BlackHole for full system audio">♪ mic</button>
     </div>
     <div id="mods" hidden></div>
+    <div id="packs" hidden></div>
     <div id="actions2">
       <button id="save" class="slider-btn" title="save snapshot to archive">save</button>
       <button id="permalink" class="slider-btn" title="copy permalink URL">link</button>
@@ -173,6 +186,7 @@
         <option value="top">top</option>
         <option value="novel">novel</option>
       </select>
+      <button id="packs-toggle" class="slider-btn" title="family packs: AI-generated generations, toggleable per pack">packs</button>
       <input id="import-file" type="file" accept=".json,application/json" hidden />
     </div>
     <div id="sheet"></div>

@@ -131,6 +131,19 @@ nothing lost); center and phase stay with their param, the abandoned param
 settles on its center. Slider automation UI refactored around refreshAutoUI.
 Verified live: sine walked a→b→c carrying its settings. 180 tests.
 
+## 2026-08-31 — Session 1 (family packs: AI generations)
+
+**status:** family packs = AI-generated GENERATIONS of 10 formulas, kept apart
+and toggleable ('packs' panel: ●/○ per pack, ✕ delete, paste-import with full
+parse→transpile validation per formula). 'copy AI prompt' builds a generation
+prompt live from the user's memory: rated snapshots (strongest signal), saves,
+origin/coords habits, elites discoveries, existing pack names. Enabled packs
+feed the picker (optgroup per generation) AND the zero-player gene pool.
+Tested end-to-end live: prompt captured Clay's real taste (extreme constants,
+toroidal radials, warp.fbm), 10/10 formulas imported as 'overdrive-spirits',
+family loads clean, toggle removes/restores the generation. 187 tests.
+Docs: docs/FAMILY-PACKS.md.
+
 ## 2026-08-31 — Session 1 (live slider ranges)
 
 **status:** slider extremes are movable, directly on the slider: push against
