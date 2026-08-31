@@ -41,7 +41,7 @@ export function lhsParamSets(params, n, rng = Math.random, { locks = {} } = {}) 
 }
 
 const EXPR_VARS = ['x', 'y', 't', 'r', 'th'];
-const EXPR_FNS = ['sin', 'cos', 'abs', 'fract']; // no sqrt/log — negative args go NaN
+const EXPR_FNS = ['sin', 'cos', 'abs', 'fract', 'fold']; // no sqrt/log — negative args go NaN
 
 /**
  * Small random expression for subtree_replace: depth ≤ 2, only NaN-safe

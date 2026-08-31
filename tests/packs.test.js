@@ -95,6 +95,14 @@ describe('family prompt', () => {
     expect(prompt).toContain('no history yet');
   });
 
+  it('teaches the iterated maps and enforces strategy rotation', () => {
+    const prompt = buildFamilyPrompt({});
+    expect(prompt).toContain('julia(zx,zy,cr,ci,n)');
+    expect(prompt).toContain('STRATEGY ROTATION');
+    expect(prompt).toContain('no trig functions at all');
+    expect(prompt).toContain('wildcard');
+  });
+
   it('embeds the user memory: ratings, saves, habits, elites, packs', () => {
     const rated = createSnapshot({ source: 'sin(9.0 * r - t)', ast: parse('sin(9.0 * r - t)'), coords: 'polar' });
     rated.rating = 5;

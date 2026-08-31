@@ -102,6 +102,12 @@ function emitCall(node, isTopLevel) {
       return `fl_worley(vec2(${args[0]}, ${args[1]}))`;
     case 'hash':
       return `fl_hash(vec2(${args[0]}, ${args[1]}))`;
+    case 'julia':
+    case 'ship':
+    case 'kali':
+    case 'orbit':
+    case 'fold':
+      return `fl_${node.name}(${args.join(', ')})`;
     default:
       return `${node.name}(${args.join(', ')})`;
   }
@@ -180,6 +186,69 @@ float fl_worley(vec2 p) {
     }
   }
   return d;
+}
+
+float fl_fold(float v) {
+  return abs(mod(v, 2.0) - 1.0);
+}
+
+// Iterated maps — the pattern-breakers. n is a runtime float like fbm's
+// octaves: capped loops with early break. All return roughly 0..1.
+
+float fl_julia(float zx, float zy, float cr, float ci, float n) {
+  vec2 z = vec2(zx, zy);
+  vec2 c = vec2(cr, ci);
+  for (int i = 0; i < 48; i++) {
+    if (float(i) >= n) break;
+    z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+    if (dot(z, z) > 16.0) {
+      float sl = float(i) + 1.0 - log2(max(1.0, log2(dot(z, z)) * 0.5));
+      return clamp(sl / max(n, 1.0), 0.0, 1.0);
+    }
+  }
+  return 1.0;
+}
+
+float fl_ship(float zx, float zy, float cr, float ci, float n) {
+  vec2 z = vec2(zx, zy);
+  vec2 c = vec2(cr, ci);
+  for (int i = 0; i < 48; i++) {
+    if (float(i) >= n) break;
+    z = vec2(abs(z.x), abs(z.y));
+    z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+    if (dot(z, z) > 16.0) {
+      float sl = float(i) + 1.0 - log2(max(1.0, log2(dot(z, z)) * 0.5));
+      return clamp(sl / max(n, 1.0), 0.0, 1.0);
+    }
+  }
+  return 1.0;
+}
+
+float fl_kali(float px, float py, float cx, float cy, float n) {
+  vec2 p = vec2(px, py);
+  vec2 c = vec2(cx, cy);
+  float acc = 0.0;
+  float count = 0.0;
+  for (int i = 0; i < 24; i++) {
+    if (float(i) >= n) break;
+    p = abs(p) / max(dot(p, p), 1e-6) - c;
+    acc += length(p);
+    count += 1.0;
+  }
+  return count > 0.0 ? clamp(acc / (count * 2.5), 0.0, 1.0) : 0.0;
+}
+
+float fl_orbit(float zx, float zy, float cr, float ci, float n) {
+  vec2 z = vec2(zx, zy);
+  vec2 c = vec2(cr, ci);
+  float trap = 1e9;
+  for (int i = 0; i < 48; i++) {
+    if (float(i) >= n) break;
+    z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+    trap = min(trap, abs(length(z) - 0.5));
+    if (dot(z, z) > 16.0) break;
+  }
+  return 1.0 - clamp(trap * 2.0, 0.0, 1.0);
 }
 
 ${PALETTE_GLSL}

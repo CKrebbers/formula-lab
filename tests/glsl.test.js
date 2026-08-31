@@ -39,6 +39,17 @@ describe('glsl: expression emission', () => {
     expect(expr('length(x, y)')).toBe('length(vec2(x, y))');
   });
 
+  it('maps iterated maps and fold to prefixed GLSL helpers', () => {
+    expect(expr('julia(x, y, 0.3, 0.5, 32.0)')).toBe('fl_julia(x, y, 0.3, 0.5, 32.0)');
+    expect(expr('ship(x, y, 0.3, 0.5, 24.0)')).toBe('fl_ship(x, y, 0.3, 0.5, 24.0)');
+    expect(expr('kali(x, y, 0.5, 0.4, 12.0)')).toBe('fl_kali(x, y, 0.5, 0.4, 12.0)');
+    expect(expr('orbit(x, y, 0.28, 0.01, 24.0)')).toBe('fl_orbit(x, y, 0.28, 0.01, 24.0)');
+    expect(expr('fold(x * 3.0)')).toBe('fl_fold((x * 3.0))');
+    const { fragmentSource } = transpile(parse('julia(x, y, 0.3, 0.5, 32.0)'));
+    expect(fragmentSource).toContain('float fl_julia');
+    expect(fragmentSource).toContain('float fl_fold');
+  });
+
   it('maps noise helpers to prefixed GLSL functions', () => {
     expect(expr('noise(x, y)')).toBe('fl_noise(vec2(x, y))');
     expect(expr('fbm(x, y, 4)')).toBe('fl_fbm(vec2(x, y), 4.0)');

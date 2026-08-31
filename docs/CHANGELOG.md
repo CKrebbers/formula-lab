@@ -2,6 +2,17 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-08-31 — Session 1 (iteration functions + strategy rotation)
+
+**status:** the pattern-breakers: julia/ship/kali/orbit (arity 5, n as live
+slider like fbm octaves, capped GLSL loops with smooth escape coloring) +
+fold(v) promoted from reserved to real. 4 new iter.* families; nodeInsert
+and randomExpr use fold; func_swap trades fractals among themselves. Pack
+prompt teaches the new maps AND enforces 10 distinct strategies per
+generation (§10 Lluminate). Verified: all four compile on GPU and render
+structure (kali entropy 0.83). 201 tests. TODO items 1+2 done — next is
+Clay's playing evening.
+
 ## 2026-08-31 — SESSION 1 CLOSE
 
 **status:** one marathon session, empty folder → living instrument. Shipped:

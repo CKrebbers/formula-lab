@@ -97,17 +97,7 @@ export function nodeInsert(ast, rng) {
     (x) => ({ type: 'call', name: 'abs', args: [x] }),
     (x) => ({ type: 'call', name: 'fract', args: [x] }),
     (x) => ({ type: 'call', name: 'sin', args: [x] }),
-    // fold(v) = abs(mod(v, 2) - 1) — §5 reserves fold() for v2 syntax; insert its expansion
-    (x) => ({
-      type: 'call',
-      name: 'abs',
-      args: [{
-        type: 'bin',
-        op: '-',
-        left: { type: 'call', name: 'mod', args: [x, { type: 'num', value: 2 }] },
-        right: { type: 'num', value: 1 },
-      }],
-    }),
+    (x) => ({ type: 'call', name: 'fold', args: [x] }), // real since the iteration update
   ];
   return replaceInSlot(root, slot, pick(rng, wrappers)(slot.node));
 }

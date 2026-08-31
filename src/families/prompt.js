@@ -6,8 +6,10 @@
 const GRAMMAR = `FORMULA LANGUAGE (strict whitelist — anything else fails to parse):
 - variables: x, y (both -1..1), t (seconds), r, th (polar), mx, my (mouse), i (pixel index)
 - functions: sin cos tan atan atan2 abs floor fract mod pow sqrt exp log
-  min max clamp mix step smoothstep length sign
+  min max clamp mix step smoothstep length sign fold
   noise(x,y) fbm(x,y,octaves) worley(x,y) hash(x,y)
+- iterated maps (all return ~0..1, n = iterations, keep n ≤ 32):
+  julia(zx,zy,cr,ci,n) ship(zx,zy,cr,ci,n) kali(px,py,cx,cy,n) orbit(zx,zy,cr,ci,n)
 - length(a) = abs, length(a,b) = distance; atan2(y,x)
 - operators: + - * / ^ ( ) and comparisons < > == (return 0.0/1.0)
 - output: a scalar (mapped to a 4-color palette), or top-level vec2(dx,dy)
@@ -51,6 +53,19 @@ export function buildFamilyPrompt({ snapshots = [], elites = [], packNames = [] 
   lines.push('YOUR TASK: design 10 NEW formulas that push further into what this');
   lines.push('history shows the user loves — same veins, deeper cuts, unexpected');
   lines.push('crossings — while avoiding near-duplicates of anything listed above.');
+  lines.push('');
+  lines.push('STRATEGY ROTATION (mandatory — this is what breaks recurring patterns):');
+  lines.push('assign each of the 10 formulas a DIFFERENT strategy and name it in its notes:');
+  lines.push('  1. no trig functions at all');
+  lines.push('  2. comparisons (< > ==) as the main structure');
+  lines.push('  3. iterated fractal — julia or ship');
+  lines.push('  4. iterated fractal — kali or orbit');
+  lines.push('  5. vec2 displacement output');
+  lines.push('  6. vec3 direct color output');
+  lines.push('  7. one constant pushed 100x beyond sane, compensated elsewhere');
+  lines.push('  8. hash/floor pixel logic only');
+  lines.push('  9. blend two unrelated structures so both stay recognizable');
+  lines.push('  10. wildcard: your strangest idea that still parses');
   lines.push('');
   lines.push(OUTPUT_SPEC);
   return lines.join('\n');

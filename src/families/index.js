@@ -13,6 +13,10 @@ import warpCurl from './warp-curl.js';
 import noiseWorley from './noise-worley.js';
 import shapeSuperformula from './shape-superformula.js';
 import shapeTruchet from './shape-truchet.js';
+import iterJulia from './iter-julia.js';
+import iterShip from './iter-ship.js';
+import iterKaliset from './iter-kaliset.js';
+import iterOrbit from './iter-orbit.js';
 
 export const FAMILIES = [
   fieldTrig,
@@ -25,6 +29,10 @@ export const FAMILIES = [
   noiseWorley,
   shapeSuperformula,
   shapeTruchet,
+  iterJulia,
+  iterShip,
+  iterKaliset,
+  iterOrbit,
 ];
 
 export function getFamily(id) {

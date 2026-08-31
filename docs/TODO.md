@@ -6,18 +6,15 @@ palettes + tone mapping ✓. Ordered by agreed priority; sizes are sessions.
 
 ## Next up (agreed order)
 
-1. **Iteration functions (B)** — `julia(x,y,cr,ci,n)`, `kali(x,y,cx,cy,n)`
-   (maybe `orbit`/`ship`) as whitelisted GLSL helpers like fbm. Unlocks the
-   fractal image class that closed-form formulas can't reach; mutation,
-   crossover and the zero-player use them automatically. Plus 4–6 new
-   built-in families on top. (~1 session)
-2. **Prompt strategy rotation (D)** — §10 Lluminate pattern in the pack
-   prompt: each of the 10 formulas gets an assigned strategy (no-trig,
-   comparison-only, vec3 color, extreme constants, julia/kali once B lands,
-   target an empty elites cell…). Kills LLM convergence. (small)
+1. ~~Iteration functions~~ ✓ SHIPPED 2026-08-31: julia/ship/kali/orbit + fold
+   whitelisted (GLSL helpers, capped loops, n as slider), 4 iter.* families,
+   verified rendering real structure on GPU. Mutation/crossover/zero-player
+   use them automatically (arity-5 func_swap group).
+2. ~~Prompt strategy rotation~~ ✓ SHIPPED 2026-08-31: 10 mandatory distinct
+   strategies per pack, iterated-fractal strategies included.
 3. **⏸ USE IT** — a full evening of real play (v1/v2 DoD are usage-based;
    archive needs to grow past ~10 snapshots). The friction list from that
-   evening reorders everything below.
+   evening reorders everything below. ← YOU ARE HERE
 
 ## Roadmap phases (docs/ROADMAP-SYMBIOSIS.md)
 
