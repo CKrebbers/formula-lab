@@ -23,7 +23,19 @@ export function nextMode(mode) {
 export function createAutomation(center, index = 0) {
   // rate and depth both start at 0: enabling an LFO changes nothing until
   // you raise them — no surprise motion (Clay, 2026-08-31)
-  return { mode: 'off', rate: 0, depth: 0, phase: index * 0.381966, center };
+  return { mode: 'off', rate: 0, depth: 0, curve: 0, phase: index * 0.381966, center };
+}
+
+/**
+ * Curve-shape a signal like DAW automation curves. curve ∈ -1..1:
+ *   0 = linear · negative = blocky, dwells at the extremes ·
+ *   positive = spiky, hugs the center with short excursions.
+ * Sign-preserving power curve; ±1 endpoints stay put.
+ */
+export function shape(v, curve = 0) {
+  if (!curve) return v;
+  const k = Math.pow(4, curve); // -1..1 → exponent 0.25..4
+  return Math.sign(v) * Math.pow(Math.abs(v), k);
 }
 
 /**
@@ -32,7 +44,7 @@ export function createAutomation(center, index = 0) {
  * the parameter keeps its position and de-sync.
  */
 export function swapAutomationSettings(a, b) {
-  for (const key of ['mode', 'rate', 'depth']) {
+  for (const key of ['mode', 'rate', 'depth', 'curve']) {
     [a[key], b[key]] = [b[key], a[key]];
   }
 }
@@ -86,9 +98,9 @@ export function evaluate(auto, range, t, audio = null) {
     if (!band) return auto.center;
     const focus = Math.min(1, Math.max(0, auto.rate / 2));
     const signal = band.level * (1 - focus) + band.pulse * focus;
-    v = auto.center + amp * signal;
+    v = auto.center + amp * shape(signal, auto.curve);
   } else {
-    v = auto.center + amp * wave(auto.mode, t * auto.rate + auto.phase);
+    v = auto.center + amp * shape(wave(auto.mode, t * auto.rate + auto.phase), auto.curve);
   }
   return Math.min(range.max, Math.max(range.min, v));
 }

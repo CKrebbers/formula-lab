@@ -41,6 +41,14 @@
     }
     .auto-label { font-size: 10px; }
     .mini-range { width: 90px; accent-color: #8be9b6; }
+    .auto-row .mini-range { width: 56px; }
+    .range-bound {
+      font-size: 9px; color: #565a75; min-width: 30px; text-align: center;
+      transition: color 0.4s ease;
+    }
+    .range-bound.flash { color: #8be9b6; transition: none; }
+    #range-hint { font-size: 9px; color: #565a75; }
+    #sliders:empty + #range-hint { display: none; }
     .slider-name { width: 24px; text-align: right; color: #fafbf6; }
     .slider-row input[type="range"] { flex: 1; accent-color: #c6b7be; }
     .slider-value { width: 60px; text-align: right; }
@@ -154,6 +162,7 @@
     <textarea id="formula" rows="3" spellcheck="false"></textarea>
     <pre id="error" hidden></pre>
     <div id="sliders"></div>
+    <div id="range-hint">ranges: push an end = stretch · dbl-click = re-center · scroll = zoom</div>
     <div id="actions">
       <button id="reroll-all" class="slider-btn" title="reroll all unlocked params">⟳ all</button>
       <button id="coords" class="slider-btn" title="coordinates: cartesian → polar → toroidal">cart</button>

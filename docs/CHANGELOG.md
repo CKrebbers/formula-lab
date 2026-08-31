@@ -131,6 +131,15 @@ nothing lost); center and phase stay with their param, the abandoned param
 settles on its center. Slider automation UI refactored around refreshAutoUI.
 Verified live: sine walked a→b→c carrying its settings. 180 tests.
 
+## 2026-08-31 — Session 1 (visible ranges + automation curves)
+
+**status:** range bounds are now VISIBLE per slider (min/max labels flanking
+it, green flash when a bound moves) + a permanent hint line explaining the
+three gestures. Automations gained a curve knob (crv, -1..1): sign-preserving
+power curve à la DAW automation — negative = blocky/dwells at extremes,
+positive = spiky/hugs center; shapes LFO waves AND the audio response, moves
+along with ←/→ swaps. 190 tests.
+
 ## 2026-08-31 — Session 1 (family packs: AI generations)
 
 **status:** family packs = AI-generated GENERATIONS of 10 formulas, kept apart

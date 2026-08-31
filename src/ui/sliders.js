@@ -64,6 +64,12 @@ export class SliderPanel {
     readout.className = 'slider-value';
     readout.textContent = formatValue(value);
 
+    // visible, living range bounds — they flash when a bound moves
+    const minLabel = document.createElement('span');
+    minLabel.className = 'range-bound';
+    const maxLabel = document.createElement('span');
+    maxLabel.className = 'range-bound';
+
     const autoBtn = document.createElement('button');
     autoBtn.className = 'slider-btn';
     autoBtn.title = 'automation: off → sine → triangle → walk → ♪bass → ♪mid → ♪high';
@@ -85,8 +91,11 @@ export class SliderPanel {
     autoRow.hidden = true;
     const rateInput = miniRange(0, 2, 0.01, auto.rate, 'rate (Hz)');
     const depthInput = miniRange(0, 1, 0.01, auto.depth, 'depth (fraction of range)');
+    const curveInput = miniRange(-1, 1, 0.01, auto.curve,
+      'curve: left = blocky (dwells at extremes), center = linear, right = spiky (hugs the center)');
     rateInput.addEventListener('input', () => { auto.rate = parseFloat(rateInput.value); });
     depthInput.addEventListener('input', () => { auto.depth = parseFloat(depthInput.value); });
+    curveInput.addEventListener('input', () => { auto.curve = parseFloat(curveInput.value); });
     const rateLabel = miniLabel('rate');
 
     const moveL = document.createElement('button');
@@ -100,7 +109,7 @@ export class SliderPanel {
     moveL.addEventListener('click', () => this.moveAutomation(name, -1));
     moveR.addEventListener('click', () => this.moveAutomation(name, 1));
 
-    autoRow.append(rateLabel, rateInput, miniLabel('depth'), depthInput, moveL, moveR);
+    autoRow.append(rateLabel, rateInput, miniLabel('dep'), depthInput, miniLabel('crv'), curveInput, moveL, moveR);
 
     slider.addEventListener('input', () => {
       delete this.glides[name]; // dragging takes over: direct, no easing lag
@@ -148,12 +157,12 @@ export class SliderPanel {
 
     const wrap = document.createElement('div');
     wrap.className = 'slider-wrap';
-    row.append(label, slider, readout, autoBtn, lock, rerollBtn);
+    row.append(label, minLabel, slider, maxLabel, readout, autoBtn, lock, rerollBtn);
     wrap.append(row, autoRow);
     this.rows[name] = {
       slider, readout, range, lockBtn: lock,
-      autoBtn, autoRow, rateInput, depthInput, rateLabel, rowEl: row,
-      lastExtend: 0,
+      autoBtn, autoRow, rateInput, depthInput, curveInput, rateLabel, rowEl: row,
+      minLabel, maxLabel, lastExtend: 0,
     };
     this.setRange(name, range.min, range.max); // sets bounds + tooltip
     return wrap;
@@ -175,9 +184,9 @@ export class SliderPanel {
     row.slider.max = max;
     row.slider.step = row.range.step;
     row.slider.value = Math.min(max, Math.max(min, v));
-    row.slider.title =
-      `range ${formatValue(min)} … ${formatValue(max)}\n` +
-      'push an end to extend · double-click to re-center · scroll to zoom';
+    row.slider.title = 'push an end to extend · double-click to re-center · scroll to zoom';
+    flashBound(row.minLabel, formatBound(min));
+    flashBound(row.maxLabel, formatBound(max));
   }
 
   /** Ratchet: while the thumb is pinned to an end, grow that side. */
@@ -207,6 +216,7 @@ export class SliderPanel {
     row.rowEl.classList.toggle('automated', auto.mode !== 'off');
     row.rateInput.value = auto.rate;
     row.depthInput.value = auto.depth;
+    row.curveInput.value = auto.curve ?? 0;
     const isAudio = AUDIO_MODES.includes(auto.mode);
     row.rateLabel.textContent = isAudio ? 'r↔h' : 'rate';
     row.rateInput.title = isAudio
@@ -365,4 +375,20 @@ function miniLabel(text) {
 
 function formatValue(v) {
   return Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(3);
+}
+
+function formatBound(v) {
+  const a = Math.abs(v);
+  return a >= 1000 ? v.toFixed(0) : a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2);
+}
+
+/** Update a bound label and flash it green when the value changed. */
+function flashBound(label, text) {
+  if (label.textContent === text) return;
+  const changed = label.textContent !== '';
+  label.textContent = text;
+  if (!changed) return;
+  label.classList.add('flash');
+  clearTimeout(label._flashTimer);
+  label._flashTimer = setTimeout(() => label.classList.remove('flash'), 500);
 }

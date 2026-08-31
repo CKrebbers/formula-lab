@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  MODES, nextMode, createAutomation, evaluate, glideValue, swapAutomationSettings,
+  MODES, nextMode, createAutomation, evaluate, glideValue, swapAutomationSettings, shape,
 } from '../src/core/automate.js';
 
 const RANGE = { min: -2, max: 6 };
@@ -24,15 +24,49 @@ describe('automate: modes', () => {
     expect(createAutomation(0, 0).phase).not.toBe(createAutomation(0, 1).phase);
   });
 
-  it('swapAutomationSettings trades mode/rate/depth, keeps center/phase', () => {
-    const a = { ...createAutomation(1.5, 0), mode: 'bass', rate: 1.8, depth: 0.7 };
-    const b = { ...createAutomation(-2, 1), mode: 'off', rate: 0, depth: 0 };
+  it('swapAutomationSettings trades mode/rate/depth/curve, keeps center/phase', () => {
+    const a = { ...createAutomation(1.5, 0), mode: 'bass', rate: 1.8, depth: 0.7, curve: 0.5 };
+    const b = { ...createAutomation(-2, 1), mode: 'off', rate: 0, depth: 0, curve: -0.3 };
     swapAutomationSettings(a, b);
-    expect([a.mode, a.rate, a.depth]).toEqual(['off', 0, 0]);
-    expect([b.mode, b.rate, b.depth]).toEqual(['bass', 1.8, 0.7]);
+    expect([a.mode, a.rate, a.depth, a.curve]).toEqual(['off', 0, 0, -0.3]);
+    expect([b.mode, b.rate, b.depth, b.curve]).toEqual(['bass', 1.8, 0.7, 0.5]);
     expect(a.center).toBe(1.5);
     expect(b.center).toBe(-2);
     expect(a.phase).not.toBe(b.phase);
+  });
+});
+
+describe('automate: curve shaping', () => {
+  it('curve 0 is identity, endpoints always preserved', () => {
+    expect(shape(0.5, 0)).toBe(0.5);
+    expect(shape(-0.7, 0)).toBe(-0.7);
+    for (const c of [-1, -0.5, 0.5, 1]) {
+      expect(shape(1, c)).toBeCloseTo(1, 10);
+      expect(shape(-1, c)).toBeCloseTo(-1, 10);
+      expect(shape(0, c)).toBe(0);
+    }
+  });
+
+  it('positive curve hugs the center, negative dwells at extremes', () => {
+    expect(Math.abs(shape(0.5, 1))).toBeLessThan(0.5);     // spiky
+    expect(Math.abs(shape(-0.5, 1))).toBeLessThan(0.5);
+    expect(Math.abs(shape(0.5, -1))).toBeGreaterThan(0.5); // blocky
+    expect(shape(-0.5, -1)).toBeLessThan(-0.5);            // sign preserved
+  });
+
+  it('curve shapes both LFO and audio evaluation', () => {
+    const range = { min: -2, max: 6 };
+    const lfoLin = { ...createAutomation(2, 0), mode: 'sine', rate: 0.25, depth: 1, phase: 0 };
+    const lfoSpiky = { ...lfoLin, curve: 1 };
+    // t chosen so the sine sits at ~0.5 of its swing
+    const tMid = (1 / 0.25) / 12; // 30° → sin = 0.5
+    expect(Math.abs(evaluate(lfoSpiky, range, tMid) - 2))
+      .toBeLessThan(Math.abs(evaluate(lfoLin, range, tMid) - 2));
+
+    const audio = { bass: { level: 0.5, pulse: 0 }, mid: { level: 0, pulse: 0 }, high: { level: 0, pulse: 0 } };
+    const aLin = { ...createAutomation(2, 0), mode: 'bass', rate: 0, depth: 1 };
+    const aBlocky = { ...aLin, curve: -1 };
+    expect(evaluate(aBlocky, range, 0, audio)).toBeGreaterThan(evaluate(aLin, range, 0, audio));
   });
 });
 
