@@ -60,3 +60,16 @@ on the dev machine. 151 tests green.
 
 **besluit:** v3 remaining: LLM mutator, phase-diagram nav, lineage tree — plus the
 parked attractors + Sprott. Clay's audio/sequence wishes stay queued behind those.
+
+## 2026-08-31 — Session 1 (multi-window + symbiosis roadmap)
+
+**status:** '⧉ out' opens display windows (?view=display): bare fullscreen
+renderer driven over BroadcastChannel (sync/local.js — transport-agnostic
+protocol: formula/params@30Hz/coords/hello). LFOs, promotes and zero-player
+discoveries all flow to displays automatically. Verified live across two tabs.
+155 tests green. Full multi-device/multi-human/symbiosis plan written:
+docs/ROADMAP-SYMBIOSIS.md (phases A shipped / B instrument-panel / C relay +
+any-device + MIDI / D input-is-output symbiosis, with session-sized steps).
+
+**besluit:** next per roadmap: D1 (live input vars in1..in4 + routing table) —
+highest leverage, smallest step. Then B1 cue/take.

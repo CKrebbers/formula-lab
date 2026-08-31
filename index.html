@@ -70,6 +70,8 @@
     }
     .lineage-row img:hover { border-color: #fafbf6; }
     #auto.active { border-color: #8be9b6; color: #8be9b6; }
+    body.display #panel { display: none; }
+    body.display #canvas { cursor: none; }
     .elites-label { font-size: 10px; color: #565a75; padding: 2px 0; }
     .elites-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 1px; }
     .elite-cell {
@@ -137,6 +139,7 @@
         <option value="structure">struct</option>
       </select>
       <button id="auto" class="slider-btn" title="zero-player: auto-explore fills the elites grid, main view follows every discovery">auto</button>
+      <button id="out" class="slider-btn" title="open a display window (drag to a second screen, click its canvas for fullscreen)">⧉ out</button>
     </div>
     <div id="actions2">
       <button id="save" class="slider-btn" title="save snapshot to archive">save</button>
