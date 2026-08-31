@@ -2,6 +2,26 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-08-31 — SESSION 1 CLOSE
+
+**status:** one marathon session, empty folder → living instrument. Shipped:
+v1 complete (parser→AST→GLSL, sliders, coords, sheets, snapshots, permalinks,
+10 families) · v2 complete minus Sprott (all §6 operators, §7 filter, novelty,
+lineage, ratings) · v3 zero-player (MAP-Elites + auto-explore) · multi-window
+display sync + crossfade · param glide · modulator rack (drift/chase/pulse/
+shuffle/glitch) · audio reactivity (tab/mic → ♪b/♪m/♪h per slider, r↔h focus)
+· movable automations (←/→) + curve knob · live slider ranges (push/dblclick/
+scroll, visible bounds) · family packs (AI prompt from user memory + paste
+import, toggleable generations) · 5 palettes + tone clamp/wrap/fold (schema
+v2) · capture-last-take (⏺ cap → ↺ gesture automation, rate=speed).
+195 tests green, 20 commits, docs current.
+
+**besluit:** next window starts at docs/TODO.md top: (1) julia/kali iteration
+functions, (2) prompt strategy rotation, (3) Clay plays a real evening.
+Read CLAUDE.md + docs/ROADMAP-SYMBIOSIS.md + docs/TODO.md for full context.
+Gotcha for testing: background tabs throttle timers AND rAF — verify UI in a
+foreground tab. Dev server: `npm run dev` (Clay runs it himself).
+
 ## 2026-08-31 — Session 1
 
 **status:** fresh start → v1 in progress.

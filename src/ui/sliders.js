@@ -6,8 +6,10 @@
 import { inferRange, reroll } from '../core/constants.js';
 import {
   createAutomation, evaluate, nextMode, glideValue, swapAutomationSettings,
-  MODE_ICONS, AUDIO_MODES,
+  extractGesture, MODE_ICONS, AUDIO_MODES,
 } from '../core/automate.js';
+
+const HISTORY_SECONDS = 30; // rolling take: capture-last-take reads from this
 
 const GLIDE_SECONDS = 0.5; // discrete changes ease in — no visual jumps
 const EDGE_EXTEND_FACTOR = 0.6;  // pushing an end grows the range by 60%
@@ -25,6 +27,7 @@ export class SliderPanel {
     this.rows = {};
     this.autos = {};
     this.glides = {};
+    this.history = {}; // name → {t: [], v: []} rolling movement record
     this.lastT = 0;
   }
 
@@ -35,6 +38,7 @@ export class SliderPanel {
     this.rows = {};
     this.autos = {};
     this.glides = {};
+    this.history = {};
     Object.entries(params).forEach(([name, value], index) => {
       this.locks[name] = false;
       this.autos[name] = createAutomation(value, index);
@@ -137,7 +141,7 @@ export class SliderPanel {
     }, { passive: false });
 
     autoBtn.addEventListener('click', () => {
-      auto.mode = nextMode(auto.mode);
+      auto.mode = nextMode(auto.mode, !!auto.gesture);
       auto.center = parseFloat(slider.value);
       this.refreshAutoUI(name);
       if (auto.mode === 'off') this.settle(name);
@@ -218,10 +222,43 @@ export class SliderPanel {
     row.depthInput.value = auto.depth;
     row.curveInput.value = auto.curve ?? 0;
     const isAudio = AUDIO_MODES.includes(auto.mode);
-    row.rateLabel.textContent = isAudio ? 'r↔h' : 'rate';
-    row.rateInput.title = isAudio
-      ? 'focus: left = hardness (loudness level), right = rhythm (beat pulses)'
-      : 'rate (Hz)';
+    const isGesture = auto.mode === 'gesture';
+    row.rateLabel.textContent = isGesture ? 'spd' : isAudio ? 'r↔h' : 'rate';
+    row.rateInput.title = isGesture
+      ? 'playback speed (1 = original tempo)'
+      : isAudio
+        ? 'focus: left = hardness (loudness level), right = rhythm (beat pulses)'
+        : 'rate (Hz)';
+  }
+
+  /**
+   * Capture-last-take (Logic Pro): turn each param's most recent stretch of
+   * movement — drags, LFO, audio response, anything — into a looping
+   * gesture automation. Returns how many params captured something.
+   */
+  captureAll() {
+    let captured = 0;
+    for (const name of Object.keys(this.rows)) {
+      if (this.captureGesture(name)) captured++;
+    }
+    return captured;
+  }
+
+  captureGesture(name) {
+    const h = this.history[name];
+    const row = this.rows[name];
+    if (!h || !row) return false;
+    const minDelta = (row.range.max - row.range.min) * 0.002;
+    const gesture = extractGesture(h.t, h.v, { minDelta });
+    if (!gesture) return false;
+    const auto = this.autos[name];
+    auto.gesture = gesture;
+    auto.mode = 'gesture';
+    auto.rate = 1;  // original tempo
+    auto.depth = 1; // original amplitude
+    auto.center = gesture.mean;
+    this.refreshAutoUI(name);
+    return true;
   }
 
   /** Land a param back on its center (automation left or turned off). */
@@ -350,6 +387,17 @@ export class SliderPanel {
       slider.value = v;
       readout.textContent = formatValue(v);
       this.onChange(name, v);
+    }
+
+    // rolling take: remember every param's motion for capture-last-take
+    for (const [name, { slider }] of Object.entries(this.rows)) {
+      const h = (this.history[name] ??= { t: [], v: [] });
+      h.t.push(t);
+      h.v.push(parseFloat(slider.value));
+      while (h.t.length && h.t[0] < t - HISTORY_SECONDS) {
+        h.t.shift();
+        h.v.shift();
+      }
     }
   }
 }

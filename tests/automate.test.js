@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   MODES, nextMode, createAutomation, evaluate, glideValue, swapAutomationSettings, shape,
+  extractGesture,
 } from '../src/core/automate.js';
 
 const RANGE = { min: -2, max: 6 };
@@ -33,6 +34,57 @@ describe('automate: modes', () => {
     expect(a.center).toBe(1.5);
     expect(b.center).toBe(-2);
     expect(a.phase).not.toBe(b.phase);
+  });
+});
+
+describe('automate: capture last take (gesture)', () => {
+  /** history: still 0..4s, sine drag 4..7s, still 7..10s */
+  function makeHistory() {
+    const t = [];
+    const v = [];
+    for (let time = 0; time < 10; time += 1 / 30) {
+      t.push(time);
+      v.push(time >= 4 && time <= 7 ? 2 + Math.sin((time - 4) * 3) * 1.5 : time < 4 ? 2 : v[v.length - 1]);
+    }
+    return { t, v };
+  }
+
+  it('extracts the moving window, normalized around its mean', () => {
+    const { t, v } = makeHistory();
+    const g = extractGesture(t, v, { minDelta: 0.01 });
+    expect(g).not.toBeNull();
+    expect(g.duration).toBeGreaterThan(2.5);
+    expect(g.duration).toBeLessThan(3.6);
+    expect(Math.max(...g.wave.map(Math.abs))).toBeCloseTo(1, 6); // one extreme hits ±1
+    expect(Math.max(...g.wave)).toBeGreaterThan(0.3);
+    expect(Math.min(...g.wave)).toBeLessThan(-0.3);
+    expect(g.amp).toBeGreaterThan(1);
+    expect(g.wave).toHaveLength(128);
+  });
+
+  it('returns null for stillness or too-short blips', () => {
+    const t = Array.from({ length: 100 }, (_, i) => i / 30);
+    expect(extractGesture(t, t.map(() => 3), { minDelta: 0.01 })).toBeNull();
+    const blipV = t.map((tt, i) => (i === 50 ? 4 : 3));
+    expect(extractGesture(t, blipV, { minDelta: 0.01, minDuration: 0.25 })).toBeNull();
+  });
+
+  it('gesture mode loops the take; rate = speed, depth = amplitude', () => {
+    const range = { min: -10, max: 10 };
+    const g = { wave: [0, 1, 0, -1], duration: 2, amp: 3, mean: 1 };
+    const auto = { ...createAutomation(1, 0), mode: 'gesture', gesture: g, rate: 1, depth: 1 };
+    expect(evaluate(auto, range, 0)).toBeCloseTo(1, 6);      // wave[0]
+    expect(evaluate(auto, range, 2 / 3)).toBeCloseTo(4, 6);  // wave[1]: 1 + 3
+    expect(evaluate(auto, range, 2)).toBeCloseTo(1, 6);      // wrapped
+    expect(evaluate({ ...auto, depth: 0.5 }, range, 2 / 3)).toBeCloseTo(2.5, 6);
+    expect(evaluate({ ...auto, rate: 2 }, range, 1 / 3)).toBeCloseTo(4, 6); // double speed
+    expect(evaluate({ ...auto, gesture: null }, range, 5)).toBe(1); // no take → center
+  });
+
+  it("nextMode includes 'gesture' only when one exists", () => {
+    expect(nextMode('high', false)).toBe('off');
+    expect(nextMode('high', true)).toBe('gesture');
+    expect(nextMode('gesture', true)).toBe('off');
   });
 });
 

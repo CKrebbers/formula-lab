@@ -458,6 +458,10 @@ function initPanel() {
   }
   el('audio-tab').addEventListener('click', () => toggleAudio('audio-tab', () => audioEngine.startTab()));
   el('audio-mic').addEventListener('click', () => toggleAudio('audio-mic', () => audioEngine.startMic()));
+  el('cap').addEventListener('click', () => {
+    const n = sliders.captureAll();
+    updateStatus(n ? ` · ⏺ captured ${n} gesture${n > 1 ? 's' : ''} (mode ↺)` : ' · ⏺ no recent movement to capture');
+  });
   el('reroll-all').addEventListener('click', () => sliders.rerollAll());
   el('coords').addEventListener('click', () => setCoords((state.coords + 1) % COORDS.length));
   for (const p of PALETTES) el('palette').append(new Option(p.id, String(PALETTES.indexOf(p))));
