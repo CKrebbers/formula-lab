@@ -37,6 +37,20 @@
     same shader, 9 param sets, blitted into 2D canvases. Tiles are frozen at generation
     time (no 9 live animations — the 2014 GPU thanks us). const_tweak perturbs every
     unlocked param with σ·max(1,|v|) so large constants drift proportionally.
+15. **v1 family library ships the 10 families expressible in today's language** (field.*,
+    warp.fbm/curl, noise.worley, shape.superformula/truchet). Iterated families
+    (julia, kaliset, …) need `iter()`, which §5 reserves for v2 — shipping them now
+    would mean building v2 language features early. Attractors need their own CPU
+    histogram render path (decision #2); they land as the next step, with the Sprott
+    search button (§9 v2). Deviation from §9 v1 scope, chosen over scope creep.
+16. **Formulas must not use `^` on possibly-negative bases** — GLSL `pow` is undefined
+    for base < 0 (black screen on some GPUs, including possibly the 2014 Radeon).
+    Families use `length(a, b)` / `abs()` instead; a families test enforces no bare `^`.
+    Consider a transpiler warning later.
+17. **Bug fixed: explicit `display: flex` beat the `hidden` attribute** on .auto-row and
+    #panel (the `h` key silently never worked). Global `[hidden] { display: none
+    !important; }` now guards every hideable element. CSS-level, so no unit test —
+    verified live in the browser.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

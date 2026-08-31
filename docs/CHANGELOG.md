@@ -25,3 +25,12 @@ permalinks (verified across a full page reload). 78 tests green.
 
 **besluit:** remaining v1 = family picker (§8, non-feedback families) + one
 evening of real use (DoD). Stats stay zeroed until the v2 filter lands.
+
+**status (later):** family picker shipped — 10 families (5 fields, 2 warps, worley,
+superformula, truchet), all verified compiling & rendering live. Iterated families
+and attractors deferred (ADR #15). Fixed: [hidden] vs display:flex bug that also
+broke the `h` panel toggle. 92 tests green.
+
+**besluit:** v1 feature-complete minus attractors. DoD check is on Clay: one full
+evening in the tool without leaving it. Next build step: attractor density path
+(CPU histogram → texture) or straight to v2 mutation operators — Clay's call.

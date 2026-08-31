@@ -6,6 +6,7 @@
   <title>Formula Lab</title>
   <style>
     html, body { margin: 0; height: 100%; background: #0f0f1b; overflow: hidden; }
+    [hidden] { display: none !important; } /* beat explicit display: flex on hideable elements */
     body, input, button, textarea { font: 12px/1.4 monospace; color: #c6b7be; }
     #canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
 
@@ -20,6 +21,10 @@
       padding: 4px 6px; outline: none;
     }
     #formula:focus { border-color: #c6b7be; }
+    #family {
+      background: #0f0f1b; color: #c6b7be; border: 1px solid #565a75;
+      padding: 2px 4px; outline: none;
+    }
     #error {
       margin: 0; padding: 4px 6px; white-space: pre-wrap;
       color: #ff5566; background: rgba(255, 85, 102, 0.08);
@@ -84,6 +89,7 @@
 <body>
   <canvas id="canvas"></canvas>
   <div id="panel">
+    <select id="family" title="load a starter formula family"></select>
     <textarea id="formula" rows="3" spellcheck="false"></textarea>
     <pre id="error" hidden></pre>
     <div id="sliders"></div>

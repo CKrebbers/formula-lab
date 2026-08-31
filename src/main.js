@@ -11,6 +11,7 @@ import { initEditor } from './ui/editor.js';
 import { SliderPanel } from './ui/sliders.js';
 import { ContactSheet } from './ui/sheet.js';
 import { ArchivePanel } from './ui/archive.js';
+import { initFamilyPicker } from './ui/families.js';
 import { Archive } from './store/archive.js';
 import { createSnapshot, COORD_NAMES } from './store/snapshot.js';
 import { encodePermalink, decodePermalink } from './store/url.js';
@@ -28,6 +29,7 @@ const errorEl = el('error');
 const state = { time: 0, mouse: [0, 0], params: {}, coords: 0 };
 let currentMode = 'scalar';
 let lastAst = null;
+let currentFamily = null;
 
 const renderer = new Renderer(canvas);
 const tileRenderer = new TileRenderer(128);
@@ -80,6 +82,14 @@ function loadSnapshot(snap) {
   }
   for (const [name, locked] of Object.entries(snap.locks)) sliders.setLock(name, locked);
   setCoords(Math.max(0, COORD_NAMES.indexOf(snap.coords)));
+  currentFamily = snap.family ?? null;
+}
+
+function loadFamily(family) {
+  textarea.value = family.source;
+  editor.apply();
+  setCoords(Math.max(0, COORD_NAMES.indexOf(family.coords)));
+  currentFamily = family.id;
 }
 
 function saveSnapshot() {
@@ -92,7 +102,8 @@ function saveSnapshot() {
     coords: COORD_NAMES[state.coords],
     time: state.time,
     thumb: tileRenderer.thumbnail(state),
-    origin: 'typed',
+    origin: currentFamily ? 'family' : 'typed',
+    family: currentFamily,
   });
   archive.save(snapshot);
   archivePanel.refresh(archive.list());
@@ -125,6 +136,9 @@ async function copyPermalink() {
 }
 
 const editor = initEditor(textarea, errorEl, applyFormula);
+initFamilyPicker(el('family'), loadFamily);
+
+textarea.addEventListener('input', () => { currentFamily = null; }); // typing = no longer a stock family
 
 el('reroll-all').addEventListener('click', () => sliders.rerollAll());
 el('coords').addEventListener('click', () => setCoords((state.coords + 1) % COORDS.length));
