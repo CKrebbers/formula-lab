@@ -41,16 +41,32 @@ describe('snapshot: create + validate', () => {
     expect(makeSnap().id).not.toBe(makeSnap().id);
   });
 
-  it('rejects bad origin, coords, params and schema', () => {
+  it('rejects bad origin, coords, params, style and schema', () => {
     expect(validateSnapshot(makeSnap({ origin: 'magic' })).ok).toBe(false);
     expect(validateSnapshot(makeSnap({ coords: 'spherical' })).ok).toBe(false);
     expect(validateSnapshot(makeSnap({ params: { a: NaN } })).ok).toBe(false);
-    expect(validateSnapshot(makeSnap({ schema: 2 })).ok).toBe(false);
+    expect(validateSnapshot(makeSnap({ schema: 99 })).ok).toBe(false);
+    expect(validateSnapshot(makeSnap({ palette: -1 })).ok).toBe(false);
+    expect(validateSnapshot(makeSnap({ tone: 7 })).ok).toBe(false);
+    expect(validateSnapshot(makeSnap({ smooth: 'yes' })).ok).toBe(false);
   });
 
-  it('migrate is identity for schema 1 and throws on newer', () => {
+  it('migrate: identity for current schema, v1 gains style defaults, newer throws', () => {
     const snap = makeSnap();
     expect(migrate(snap)).toBe(snap);
+
+    const v1 = { ...makeSnap() };
+    delete v1.palette;
+    delete v1.smooth;
+    delete v1.tone;
+    v1.schema = 1;
+    const migrated = migrate(v1);
+    expect(migrated.schema).toBe(SCHEMA_VERSION);
+    expect(migrated.palette).toBe(0);
+    expect(migrated.smooth).toBe(false);
+    expect(migrated.tone).toBe(0);
+    expect(validateSnapshot(migrated).ok).toBe(true);
+
     expect(() => migrate(makeSnap({ schema: 99 }))).toThrow(/newer/);
     expect(() => migrate({})).toThrow(/missing schema/);
   });
@@ -119,6 +135,9 @@ describe('url: permalink', () => {
       params: { a: 0.5, b: 4, c: 3, d: 3 },
       locks: { a: true, b: false, c: false, d: false },
       coords: 'toroidal',
+      palette: 3,
+      smooth: true,
+      tone: 2,
     };
     const hash = encodePermalink(data);
     expect(hash.startsWith('#f=')).toBe(true);

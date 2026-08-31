@@ -21,7 +21,14 @@ export class Archive {
     }
     if (!Array.isArray(raw)) return [];
     return raw
-      .filter((s) => validateSnapshot(s).ok)
+      .map((s) => {
+        try {
+          return migrate(s); // older schemas are upgraded on read
+        } catch {
+          return null;
+        }
+      })
+      .filter((s) => s && validateSnapshot(s).ok)
       .sort((a, b) => b.created.localeCompare(a.created));
   }
 

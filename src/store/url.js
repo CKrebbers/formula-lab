@@ -10,8 +10,11 @@ const PREFIX = '#f=';
  * @param {{source: string, params?: object, locks?: object, coords?: string}} data
  * @returns {string} hash fragment including '#f='
  */
-export function encodePermalink({ source, params = {}, locks = {}, coords = 'cartesian' }) {
-  const payload = JSON.stringify({ v: 1, source, params, locks, coords });
+export function encodePermalink({
+  source, params = {}, locks = {}, coords = 'cartesian',
+  palette = 0, smooth = false, tone = 0,
+}) {
+  const payload = JSON.stringify({ v: 1, source, params, locks, coords, palette, smooth, tone });
   return PREFIX + compressToEncodedURIComponent(payload);
 }
 
@@ -31,6 +34,9 @@ export function decodePermalink(hash) {
       params: data.params ?? {},
       locks: data.locks ?? {},
       coords: COORD_NAMES.includes(data.coords) ? data.coords : 'cartesian',
+      palette: Number.isInteger(data.palette) ? data.palette : 0,
+      smooth: data.smooth === true,
+      tone: [0, 1, 2].includes(data.tone) ? data.tone : 0,
     };
   } catch {
     return null;

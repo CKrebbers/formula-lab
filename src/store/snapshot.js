@@ -1,7 +1,7 @@
 // Snapshot schema v1 (§4, frozen): create, validate, migrate.
 // No DOM dependency — testable in Node.
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2; // v2 adds display style: palette, smooth, tone
 
 export const COORD_NAMES = ['cartesian', 'polar', 'toroidal'];
 export const ORIGINS = ['typed', 'mutate', 'crossover', 'sample', 'llm', 'family'];
@@ -31,6 +31,9 @@ export function createSnapshot({
   operator = null,
   family = null,
   parent_ids = [],
+  palette = 0,
+  smooth = false,
+  tone = 0,
 }) {
   return {
     schema: SCHEMA_VERSION,
@@ -44,6 +47,9 @@ export function createSnapshot({
     params: { ...params },
     locks: { ...locks },
     coords,
+    palette,
+    smooth,
+    tone,
     seed,
     time,
     stats: { ...EMPTY_STATS },
@@ -71,6 +77,9 @@ export function validateSnapshot(snap) {
     if (typeof v !== 'number' || !Number.isFinite(v)) return fail(`param '${k}' is not a finite number`);
   }
   if (!COORD_NAMES.includes(snap.coords)) return fail(`Unknown coords '${snap.coords}'`);
+  if (!Number.isInteger(snap.palette) || snap.palette < 0) return fail('palette must be a non-negative integer');
+  if (typeof snap.smooth !== 'boolean') return fail('smooth must be a boolean');
+  if (![0, 1, 2].includes(snap.tone)) return fail('tone must be 0 (clamp), 1 (wrap) or 2 (fold)');
   if (typeof snap.stats !== 'object' || snap.stats === null) return fail('Missing stats');
   return { ok: true };
 }
@@ -87,6 +96,9 @@ export function migrate(snap) {
   if (snap.schema > SCHEMA_VERSION) {
     throw new Error(`Snapshot schema ${snap.schema} is newer than this build (${SCHEMA_VERSION})`);
   }
-  // future: schema 0 → 1 steps chain here
+  if (snap.schema === 1) {
+    // v1 → v2: display style did not exist yet; defaults match the old look
+    return migrate({ ...snap, schema: 2, palette: 0, smooth: false, tone: 0 });
+  }
   throw new Error(`No migration path from schema ${snap.schema}`);
 }

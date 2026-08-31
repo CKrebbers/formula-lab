@@ -3,7 +3,7 @@
 
 import { parse } from './core/parser.js';
 import { serialize } from './core/ast.js';
-import { transpile } from './core/glsl.js';
+import { transpile, PALETTES, TONES } from './core/glsl.js';
 import { extractParams } from './core/constants.js';
 import { Renderer } from './render/gl.js';
 import { TileRenderer } from './render/tile.js';
@@ -51,7 +51,7 @@ function initPanel() {
   const statusEl = el('status');
   const textarea = el('formula');
 
-  const state = { time: 0, mouse: [0, 0], params: {}, coords: 0 };
+  const state = { time: 0, mouse: [0, 0], params: {}, coords: 0, palette: 0, smooth: false, tone: 0 };
   let currentMode = 'scalar';
   let lastAst = null;          // raw parsed AST (num literals)
   let currentParamAst = null;  // AST with param nodes
@@ -109,7 +109,10 @@ function initPanel() {
   });
 
   function broadcastFormula() {
-    sync.send('formula', { source: textarea.value, coords: state.coords, params: state.params });
+    sync.send('formula', {
+      source: textarea.value, coords: state.coords, params: state.params,
+      palette: state.palette, smooth: state.smooth, tone: state.tone,
+    });
   }
 
   function applyFormula(source) {
@@ -136,6 +139,16 @@ function initPanel() {
     sync.send('coords', { coords: index });
   }
 
+  function setStyle({ palette = state.palette, smooth = state.smooth, tone = state.tone } = {}) {
+    state.palette = Math.min(PALETTES.length - 1, Math.max(0, palette));
+    state.smooth = !!smooth;
+    state.tone = tone;
+    el('palette').value = String(state.palette);
+    el('tone').textContent = TONES[state.tone];
+    el('smooth').textContent = state.smooth ? '▤' : '▦';
+    sync.send('style', { palette: state.palette, smooth: state.smooth, tone: state.tone });
+  }
+
   function updateStatus(extra = '') {
     statusEl.textContent =
       `[${currentMode}] [${COORDS[state.coords]}] ${Object.keys(state.params).length} param(s) · h = hide panel${extra}`;
@@ -149,6 +162,7 @@ function initPanel() {
     }
     for (const [name, locked] of Object.entries(snap.locks)) sliders.setLock(name, locked);
     setCoords(Math.max(0, COORD_NAMES.indexOf(snap.coords)));
+    setStyle(snap);
     currentFamily = snap.family ?? null;
     currentParentIds = [snap.id];
     pendingOrigin = null;
@@ -181,6 +195,9 @@ function initPanel() {
       operator: pendingOperator,
       family: currentFamily,
       parent_ids: currentParentIds,
+      palette: state.palette,
+      smooth: state.smooth,
+      tone: state.tone,
     });
     snapshot.stats = averageStats(
       computeStats(s0.pixels, s0.width, s0.height),
@@ -245,7 +262,10 @@ function initPanel() {
       const compiled = transpile(ast);
       tileRenderer.setShader(compiled.fragmentSource, compiled.paramNames);
       const coordsIdx = Math.max(0, COORD_NAMES.indexOf(coords));
-      const candState = { time: 0, mouse: [0, 0], coords: coordsIdx, params };
+      const candState = {
+        time: 0, mouse: [0, 0], coords: coordsIdx, params,
+        palette: state.palette, smooth: state.smooth, tone: state.tone,
+      };
 
       const s0 = tileRenderer.readStats(candState);
       const s1 = tileRenderer.readStats({ ...candState, time: 1 });
@@ -293,6 +313,10 @@ function initPanel() {
           operator: result.operator,
           family: result.family ?? null,
           parent_ids: result.parentIds ?? [],
+          // discoveries wander through looks too — half inherit, half mutate style
+          palette: Math.random() < 0.5 ? state.palette : Math.floor(Math.random() * PALETTES.length),
+          smooth: Math.random() < 0.5 ? state.smooth : Math.random() < 0.3,
+          tone: Math.random() < 0.5 ? state.tone : Math.floor(Math.random() * TONES.length),
         });
         snap.stats = result.stats;
         const placed = elites.consider(snap, result.novelty);
@@ -303,6 +327,7 @@ function initPanel() {
           textarea.value = snap.formula.source;
           editor.apply();
           setCoords(Math.max(0, COORD_NAMES.indexOf(snap.coords)));
+          setStyle(snap);
           pendingOrigin = snap.origin;
           pendingOperator = snap.operator;
           currentFamily = snap.family;
@@ -345,6 +370,9 @@ function initPanel() {
       params: sliders.targetParams(),
       locks: sliders.locks,
       coords: COORD_NAMES[state.coords],
+      palette: state.palette,
+      smooth: state.smooth,
+      tone: state.tone,
     });
     // never leave the hash in the address bar — it would defeat the random
     // start on the next reload (a pasted link still loads once, then strips)
@@ -432,6 +460,10 @@ function initPanel() {
   el('audio-mic').addEventListener('click', () => toggleAudio('audio-mic', () => audioEngine.startMic()));
   el('reroll-all').addEventListener('click', () => sliders.rerollAll());
   el('coords').addEventListener('click', () => setCoords((state.coords + 1) % COORDS.length));
+  for (const p of PALETTES) el('palette').append(new Option(p.id, String(PALETTES.indexOf(p))));
+  el('palette').addEventListener('change', () => setStyle({ palette: parseInt(el('palette').value, 10) }));
+  el('tone').addEventListener('click', () => setStyle({ tone: (state.tone + 1) % TONES.length }));
+  el('smooth').addEventListener('click', () => setStyle({ smooth: !state.smooth }));
   el('make-sheet').addEventListener('click', () =>
     sheet.generateTweak(tileRenderer, sliders.targetParams(), sliders.locks, state));
   el('mutate').addEventListener('click', () => mutateSheet());
@@ -520,7 +552,9 @@ function initPanel() {
     }
     for (const [name, locked] of Object.entries(fromUrl.locks)) sliders.setLock(name, locked);
     setCoords(Math.max(0, COORD_NAMES.indexOf(fromUrl.coords)));
+    setStyle(fromUrl);
   }
+  setStyle({}); // sync the style controls with initial state
   refreshArchive();
   elitesPanel.refresh(elites);
 

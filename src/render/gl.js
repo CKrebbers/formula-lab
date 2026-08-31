@@ -52,6 +52,9 @@ export class Renderer {
       mouse: gl.getUniformLocation(program, 'u_mouse'),
       coords: gl.getUniformLocation(program, 'u_coords'),
       raw: gl.getUniformLocation(program, 'u_raw'),
+      palette: gl.getUniformLocation(program, 'u_palette'),
+      smooth: gl.getUniformLocation(program, 'u_smooth'),
+      tone: gl.getUniformLocation(program, 'u_tone'),
     };
     this.paramLocations = {};
     for (const name of paramNames) {
@@ -86,6 +89,9 @@ export class Renderer {
     gl.uniform2f(this.uniforms.mouse, state.mouse[0], state.mouse[1]);
     gl.uniform1i(this.uniforms.coords, state.coords ?? 0);
     gl.uniform1i(this.uniforms.raw, state.raw ? 1 : 0);
+    gl.uniform1i(this.uniforms.palette, state.palette ?? 0);
+    gl.uniform1i(this.uniforms.smooth, state.smooth ? 1 : 0);
+    gl.uniform1i(this.uniforms.tone, state.tone ?? 0);
     if (state.params) {
       for (const [name, loc] of Object.entries(this.paramLocations || {})) {
         gl.uniform1f(loc, state.params[name] ?? 0);

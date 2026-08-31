@@ -13,6 +13,31 @@ import { validate } from './ast.js';
 
 export class TranspileError extends Error {}
 
+/**
+ * Palette LUTs — single source of truth for the shader AND the UI.
+ * Index = u_palette uniform. 4 colors each, dark → light.
+ */
+export const PALETTES = [
+  { id: 'hollow', colors: ['#0f0f1b', '#565a75', '#c6b7be', '#fafbf6'] },
+  { id: 'gameboy', colors: ['#0f380f', '#306230', '#8bac0f', '#9bbc0f'] },
+  { id: 'cga', colors: ['#000000', '#55ffff', '#ff55ff', '#ffffff'] },
+  { id: 'amber', colors: ['#0d0802', '#4d2800', '#b36b00', '#ffb000'] },
+  { id: 'fire', colors: ['#0a0006', '#5c0a2a', '#e33b18', '#ffd23e'] },
+];
+
+/** Tone mapping of the scalar before the palette: how out-of-range behaves. */
+export const TONES = ['clamp', 'wrap', 'fold'];
+
+function hexToVec3(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const c = (v) => (v / 255).toFixed(4);
+  return `vec3(${c(n >> 16)}, ${c((n >> 8) & 255)}, ${c(n & 255)})`;
+}
+
+const PALETTE_GLSL = `const vec3 FL_PAL[${PALETTES.length * 4}] = vec3[${PALETTES.length * 4}](
+${PALETTES.map((p) => p.colors.map(hexToVec3).join(', ')).join(',\n')}
+);`;
+
 /** Format a JS number as a GLSL float literal. */
 export function glslFloat(value) {
   if (!Number.isFinite(value)) throw new TranspileError(`Cannot emit non-finite number ${value}`);
@@ -157,14 +182,23 @@ float fl_worley(vec2 p) {
   return d;
 }
 
-// 4-color pixel-art LUT (DECISIONS.md #1): dark → light, quantized.
-vec3 fl_palette(float s) {
-  s = clamp(s * 0.5 + 0.5, 0.0, 1.0); // formula range -1..1 → 0..1
-  float idx = floor(s * 3.999);
-  if (idx < 1.0) return vec3(0.059, 0.059, 0.106); // #0f0f1b
-  if (idx < 2.0) return vec3(0.337, 0.353, 0.459); // #565a75
-  if (idx < 3.0) return vec3(0.776, 0.718, 0.745); // #c6b7be
-  return vec3(0.980, 0.984, 0.965);                // #fafbf6
+${PALETTE_GLSL}
+
+// Palette mapping (DECISIONS.md #1, extended): u_tone decides how the raw
+// scalar behaves outside -1..1 (clamp = plateaus, wrap = repeating bands,
+// fold = mirrored bands), u_palette picks the LUT, u_smooth interpolates.
+vec3 fl_palette(float v) {
+  float raw = v * 0.5 + 0.5;
+  float s = (u_tone == 1) ? fract(raw)
+          : (u_tone == 2) ? 1.0 - abs(mod(raw, 2.0) - 1.0)
+          : clamp(raw, 0.0, 1.0);
+  int base = u_palette * 4;
+  if (u_smooth == 1) {
+    float pos = min(s * 3.0, 2.999);
+    int seg = int(floor(pos));
+    return mix(FL_PAL[base + seg], FL_PAL[base + seg + 1], fract(pos));
+  }
+  return FL_PAL[base + int(floor(min(s, 0.999) * 4.0))];
 }
 `;
 
@@ -203,8 +237,11 @@ precision highp float;
 uniform float u_time;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
-uniform int u_coords; // 0 = cartesian, 1 = polar, 2 = toroidal
-uniform int u_raw;    // 1 = skip the palette LUT (continuous grayscale, for stats)
+uniform int u_coords;  // 0 = cartesian, 1 = polar, 2 = toroidal
+uniform int u_raw;     // 1 = skip the palette LUT (continuous grayscale, for stats)
+uniform int u_palette; // LUT index (see PALETTES)
+uniform int u_smooth;  // 0 = quantized pixel-art steps, 1 = interpolated
+uniform int u_tone;    // 0 = clamp, 1 = wrap, 2 = fold
 ${paramUniforms}
 out vec4 outColor;
 ${HELPERS}

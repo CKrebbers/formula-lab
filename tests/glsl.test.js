@@ -90,6 +90,15 @@ describe('glsl: full shader (golden structure)', () => {
     expect(fragmentSource).toContain('fl_fbm(vec2(x + warp.x, y + warp.y)');
   });
 
+  it('embeds all palettes and the tone/palette/smooth uniforms', () => {
+    const { fragmentSource } = transpile(parse('sin(x)'));
+    expect(fragmentSource).toContain('uniform int u_palette;');
+    expect(fragmentSource).toContain('uniform int u_smooth;');
+    expect(fragmentSource).toContain('uniform int u_tone;');
+    expect(fragmentSource).toContain('FL_PAL[20]'); // 5 palettes × 4 colors
+    expect(fragmentSource).toContain('fract(raw)'); // wrap tone
+  });
+
   it('remaps coordinates via the u_coords uniform', () => {
     const { fragmentSource } = transpile(parse('sin(x)'));
     expect(fragmentSource).toContain('uniform int u_coords;');

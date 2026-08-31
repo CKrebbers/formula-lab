@@ -35,7 +35,7 @@ export function initDisplay() {
   const state = { time: 0, mouse: [0, 0], params: {}, coords: 0 };
   let hasFormula = false;
 
-  sync.on('formula', ({ source, coords, params }) => {
+  sync.on('formula', ({ source, coords, params, palette, smooth, tone }) => {
     const back = layers[1 - frontIdx];
     try {
       const { ast, params: extracted } = extractParams(parse(source));
@@ -44,6 +44,9 @@ export function initDisplay() {
       back.live = true;
       state.params = { ...extracted, ...params };
       state.coords = coords ?? 0;
+      state.palette = palette ?? state.palette ?? 0;
+      state.smooth = smooth ?? state.smooth ?? false;
+      state.tone = tone ?? state.tone ?? 0;
 
       // crossfade: force the incoming layer to opacity 0 (it may still be at 1
       // from a previous fast swap), then fade 0 → 1 on top of the old one
@@ -65,6 +68,7 @@ export function initDisplay() {
   });
   sync.on('params', ({ params }) => Object.assign(state.params, params));
   sync.on('coords', ({ coords }) => { state.coords = coords; });
+  sync.on('style', ({ palette, smooth, tone }) => Object.assign(state, { palette, smooth, tone }));
 
   // announce until the panel answers with a formula
   const hello = setInterval(() => {

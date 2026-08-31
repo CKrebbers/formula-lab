@@ -3,7 +3,7 @@
 // insert — machine finds have no rating; see DECISIONS.md). Pure + injectable
 // storage, testable in Node.
 
-import { validateSnapshot } from '../store/snapshot.js';
+import { validateSnapshot, migrate } from '../store/snapshot.js';
 
 export const GRID_SIZE = 10;
 const KEY = 'formula-lab.elites.v1';
@@ -27,8 +27,12 @@ export class ElitesGrid {
       const raw = JSON.parse(this.storage.getItem(KEY) || '{}');
       const cells = {};
       for (const [cell, entry] of Object.entries(raw)) {
-        if (entry && typeof entry.fitness === 'number' && validateSnapshot(entry.snapshot).ok) {
-          cells[cell] = entry;
+        if (!entry || typeof entry.fitness !== 'number') continue;
+        try {
+          const snapshot = migrate(entry.snapshot);
+          if (validateSnapshot(snapshot).ok) cells[cell] = { ...entry, snapshot };
+        } catch {
+          continue;
         }
       }
       return cells;
