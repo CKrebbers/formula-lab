@@ -46,6 +46,38 @@ export function extractParams(ast) {
 }
 
 /**
+ * Inverse of extractParams: put current param VALUES back as literals, so
+ * mutation operates on what the user actually sees/hears, not the original
+ * typed constants. Negative values become neg(num) — the grammar has no
+ * negative literals. Leaves the input untouched.
+ */
+export function substituteParams(ast, params) {
+  function transform(node) {
+    switch (node.type) {
+      case 'param': {
+        const v = params[node.name] ?? 0;
+        return v < 0
+          ? { type: 'neg', arg: { type: 'num', value: -v } }
+          : { type: 'num', value: v };
+      }
+      case 'neg':
+        node.arg = transform(node.arg);
+        return node;
+      case 'bin':
+        node.left = transform(node.left);
+        node.right = transform(node.right);
+        return node;
+      case 'call':
+        node.args = node.args.map(transform);
+        return node;
+      default:
+        return node;
+    }
+  }
+  return transform(clone(ast));
+}
+
+/**
  * Slider range for a constant, centered on its current value.
  * Wide enough to explore, tight enough to stay controllable.
  */
