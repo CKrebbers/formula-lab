@@ -78,13 +78,13 @@ export class SliderPanel {
     const shrinkMin = document.createElement('button');
     shrinkMin.className = 'range-btn';
     shrinkMin.textContent = '»';
-    shrinkMin.title = 'shorten: pull the minimum toward the current value';
-    shrinkMin.addEventListener('click', () => this.shrinkRange(name, 'min'));
+    shrinkMin.title = 'shorten: pull the minimum toward the current value (hold to repeat)';
+    holdRepeat(shrinkMin, () => this.shrinkRange(name, 'min'));
     const shrinkMax = document.createElement('button');
     shrinkMax.className = 'range-btn';
     shrinkMax.textContent = '«';
-    shrinkMax.title = 'shorten: pull the maximum toward the current value';
-    shrinkMax.addEventListener('click', () => this.shrinkRange(name, 'max'));
+    shrinkMax.title = 'shorten: pull the maximum toward the current value (hold to repeat)';
+    holdRepeat(shrinkMax, () => this.shrinkRange(name, 'max'));
 
     const autoBtn = document.createElement('button');
     autoBtn.className = 'slider-btn';
@@ -143,12 +143,14 @@ export class SliderPanel {
       this.setRange(name, r.min, r.max);
     });
 
-    // scroll on the slider: zoom the range in/out around the current value
+    // scroll on the slider: zoom the range around the current value —
+    // proportional to the actual wheel delta (a flick fires many events)
     slider.addEventListener('wheel', (e) => {
       e.preventDefault();
+      const factor = Math.min(1.15, Math.max(0.87, Math.pow(1.0015, e.deltaY)));
       const v = parseFloat(slider.value);
       const r = this.rows[name].range;
-      const half = ((r.max - r.min) * (e.deltaY > 0 ? 1.25 : 0.8)) / 2;
+      const half = Math.max(1e-6, ((r.max - r.min) * factor) / 2);
       this.setRange(name, v - half, v + half);
     }, { passive: false });
 
@@ -216,10 +218,10 @@ export class SliderPanel {
     const v = parseFloat(row.slider.value);
     const minSpan = Math.max(1e-6, (r.max - r.min) * 0.02);
     if (side === 'min') {
-      const newMin = Math.min(r.min + (v - r.min) * 0.5, v - minSpan);
+      const newMin = Math.min(r.min + (v - r.min) * 0.65, v - minSpan);
       this.setRange(name, newMin, r.max);
     } else {
-      const newMax = Math.max(r.max - (r.max - v) * 0.5, v + minSpan);
+      const newMax = Math.max(r.max - (r.max - v) * 0.65, v + minSpan);
       this.setRange(name, r.min, newMax);
     }
   }
@@ -431,6 +433,23 @@ export class SliderPanel {
       }
     }
   }
+}
+
+/** Fire on press, then repeat while held (mouse or touch). */
+function holdRepeat(btn, fn) {
+  let timer = null;
+  const start = (e) => {
+    e.preventDefault();
+    fn();
+    timer = setInterval(fn, 140);
+  };
+  const stop = () => {
+    clearInterval(timer);
+    timer = null;
+  };
+  btn.addEventListener('pointerdown', start);
+  btn.addEventListener('pointerup', stop);
+  btn.addEventListener('pointerleave', stop);
 }
 
 function miniRange(min, max, step, value, title) {
