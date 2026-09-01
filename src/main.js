@@ -162,9 +162,9 @@ function initPanel() {
     };
     sliders.rebuild(params);
     sheet.clear();
-    avSound.setFormula(ast); // sound follows the cue, like the panel canvas
-    syncAudioRun();
     updateStatus();
+    avSound.setFormula(ast); // sound follows the cue, like the panel canvas
+    syncAudioRun();          // after updateStatus: its hint must survive
     cueChanged(); // the panel canvas is the cue preview; displays wait for TAKE
   }
 
