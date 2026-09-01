@@ -2,6 +2,63 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-09-01 — AV hardening: make the tests prove something (ADR #33–#39)
+
+**status:** no new features. Six review points, in the order that puts the
+measuring instruments before the things they measure.
+
+- **Dropout meter on the audio thread** (#33). The child-process CPU test
+  could not prove "zero dropouts in 30 s realtime" and had flaked once.
+  `DropoutMeter` counts gaps (rendered position vs. wall clock) and overruns
+  (our wall time vs. audio time produced), reports to the main thread, and
+  surfaces in the status line. Corpus run: 24 presets, 30 s, **0 gaps, load
+  0.22**. Negative control: **192 gaps, 235 630 lost frames, load 3.15** —
+  the first "too heavy" control ran at load 0.84 and proved nothing, so it
+  was made genuinely heavy. Also found: the context runs at **44.1 kHz**, not
+  48 kHz; the first corpus run's apparent 2.4 s deficit was the test's own
+  arithmetic. `report()` now carries `sampleRate`.
+- **Mutation testing on emitJS** (#34). Three mutations of the emitter, each
+  killed by the parity corpus (4/25, 22/25, 21/25), with a control proving the
+  loader itself works. The harness's blind spot is now asserted, not assumed:
+  emitJS and the reference interpreter share `FL`, so a mutation inside
+  jsruntime.js is invisible here — the GPU parity spec covers that.
+- **stats.audio measured pre-normalizer as well as post** (#35, schema 4). The
+  same sine at ×0.001 and ×1000: `pre.rms` 0.000707 vs 707.014, `post.rms`
+  0.3308 vs 0.3329. Level is what the chain destroys. **Correction:** the
+  crest flattening this point assumed was a startup transient, removed by #37;
+  in steady state tanh shaves ~3 %.
+- **Migration with visible provenance** (#36). v2 presets get the documented
+  scan default tagged `origin: 'schema-v2-default'`; a session's own setting is
+  tagged `session`, and validation refuses a scan that will not say which.
+  Tested against frozen v1/v2/v3 fixtures, and verified live: a v2 record
+  injected into the running app loads as schema 4 with its rating, formula and
+  style intact and no invented audio stats.
+- **DC chain rebuilt** (#37): one 6 Hz blocker + a 250 ms running-mean
+  subtraction instead of two cascaded 20 Hz blockers. 20 Hz −6.02 → −0.37 dB,
+  30 Hz −3.19 → −0.16 dB. The safety test then caught a real regression — a
+  ramp pinned the limiter for the first 250 ms — so the synth is now silent
+  for one mean window before fading in: it cannot know a formula's DC before
+  watching a window of it.
+- **Audio-silent terms declared** (#38). `prev()`, `dx`, `dy` are 0 at 48 kHz;
+  the panel now says so per formula under the editor, and the saved
+  measurement carries the list so `stats.audio` cannot imply the whole formula
+  was heard.
+- **Goldens compare with tolerance** (#39), 1e-5, with controls both ways (a
+  64-ULP nudge passes, 1e-4 fails). Found while doing it: regenerating right
+  after #37's warmup captured 1024 samples of silence — **all 20 hashes
+  identical, test green, proving nothing**. Fingerprints now start at 0.4 s and
+  two guards keep that failure loud.
+
+345 unit + 28 browser tests. Verified live: the audio note, the scope drawing
+the audible waveform, and a migrated v2 preset in the archive.
+
+**besluit:** deliberately not done, and why — Chrome's `renderCapacity` is
+absent in this build so the dropout meter has no second opinion (the negative
+control is what validates it); tolerance goldens still cannot survive a
+chaotic formula's escape-time decisions on another engine (they now fail with
+a number attached instead of "hash mismatch"); `stats.audio` is still not read
+by the zero-player's novelty — that was the reason for #35, not part of it.
+
 ## 2026-09-01 — The AV layer: every formula is image AND sound (ADR 001, #31/#32)
 
 **status:** one AST, two backends — no audio analysis, no FFT coupling; the
