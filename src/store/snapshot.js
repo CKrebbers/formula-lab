@@ -155,7 +155,9 @@ export function migrate(snap) {
     // `post` and leave `pre` null rather than back-filling a number that was
     // never measured.
     const old = snap.stats?.audio ?? null;
-    const audio = old && !('post' in old) ? { pre: null, post: old } : old;
+    // `silent` is null, not []: v3 never recorded which terms were inert, and
+    // an empty list would claim the whole formula was heard (ADR #38)
+    const audio = old && !('post' in old) ? { pre: null, post: old, silent: null } : old;
     // a v3 scan was the session's live setting, so it is tagged as such —
     // unlike the v2 default, which nobody chose
     const scan = snap.scan ? { origin: 'session', ...snap.scan } : snap.scan ?? null;

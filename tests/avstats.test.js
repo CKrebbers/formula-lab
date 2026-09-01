@@ -143,6 +143,17 @@ describe('computeAudioStats', () => {
     }
   });
 
+  it('the measurement declares what was inert while it was taken', () => {
+    const audible = statsFor('sin(440.0 * 6.283 * t)');
+    expect(audible.silent).toEqual([]);
+
+    const trails = statsFor('prev(x, y) * 0.97 + 0.06 * sin(length(x, y) * 14.0 - t * 2.0)',
+      { path: 'lissajous', freq: 110 });
+    // stats.audio must not imply the whole formula was heard
+    expect(trails.silent).toEqual(['prev()']);
+    expect(trails.pre.rms).toBeGreaterThan(0); // the source term still sounds
+  });
+
   it('is deterministic', () => {
     expect(statsFor('fract(t * 220.0) * 2.0 - 1.0'))
       .toEqual(statsFor('fract(t * 220.0) * 2.0 - 1.0'));

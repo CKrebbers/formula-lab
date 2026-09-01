@@ -103,6 +103,11 @@ export class AVSound {
     return this.compiled;
   }
 
+  /** Terms of the current formula that are 0 in the audio backend (ADR #38). */
+  get silentTerms() {
+    return this.compiled?.silent ?? [];
+  }
+
   /** Field-mode scan path: which curve walks the field, at how many Hz. */
   setScan(path = this.scan.path, freq = this.scan.freq) {
     this.scan = { path, freq };

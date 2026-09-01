@@ -65,8 +65,39 @@ function emitCall(node, isTopLevel) {
 }
 
 /**
+ * Terms that exist in the shader but evaluate to 0 in the audio backend
+ * (ADR #38): there is no frame buffer at 48 kHz and no screen pixel to step
+ * by. The same formula therefore does something different in the two
+ * backends — an acceptable limit, but not a silent one, so the emitter
+ * reports it and the UI and the saved measurement carry it.
+ */
+const AUDIO_SILENT_VARS = ['dx', 'dy'];
+const AUDIO_SILENT_CALLS = ['prev'];
+
+/** @returns {string[]} sorted names of this formula's audio-silent terms. */
+export function audioSilentTerms(node, found = new Set()) {
+  switch (node?.type) {
+    case 'var':
+      if (AUDIO_SILENT_VARS.includes(node.name)) found.add(node.name);
+      break;
+    case 'neg':
+      audioSilentTerms(node.arg, found);
+      break;
+    case 'bin':
+      audioSilentTerms(node.left, found);
+      audioSilentTerms(node.right, found);
+      break;
+    case 'call':
+      if (AUDIO_SILENT_CALLS.includes(node.name)) found.add(`${node.name}()`);
+      node.args.forEach((a) => audioSilentTerms(a, found));
+      break;
+  }
+  return [...found].sort();
+}
+
+/**
  * Emit a JS function body for a validated AST.
- * Returns { body, mode, isParametric }.
+ * Returns { body, mode, isParametric, silent }.
  *
  * The compiled function's contract: fn(FL, env, out)
  *   env: { x, y, t, r, th, mx, my, i, dx, dy, params }
@@ -85,15 +116,19 @@ export function emitJS(ast) {
     ret = emitted.map((e, k) => `out[${k}] = ${e};`).join('\n') + '\nreturn out;';
   }
   const body = `"use strict";\nconst P = env.params;\n${ret}`;
-  return { body, mode, isParametric: isParametric(ast) };
+  return {
+    body, mode,
+    isParametric: isParametric(ast),
+    silent: audioSilentTerms(ast),
+  };
 }
 
 /** Compile to a callable: fn(FL, env, out). */
 export function compileFormula(ast) {
-  const { body, mode, isParametric: parametric } = emitJS(ast);
+  const { body, mode, isParametric: parametric, silent } = emitJS(ast);
   // eslint-disable-next-line no-new-func
   const fn = new Function('FL', 'env', 'out', body);
-  return { fn, body, mode, isParametric: parametric };
+  return { fn, body, mode, isParametric: parametric, silent };
 }
 
 /**

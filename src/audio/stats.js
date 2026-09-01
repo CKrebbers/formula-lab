@@ -50,7 +50,9 @@ export function computeAudioStats(paramAst, params, scan = null) {
     pre.set(core.tapL, b * 128);
   }
 
-  return { pre: measure(pre), post: measure(post) };
+  // the measurement carries what was inert while it was taken (ADR #38), so a
+  // preset's audio stats can never imply the whole formula was heard
+  return { pre: measure(pre), post: measure(post), silent: compiled.silent };
 }
 
 export { isParametric };

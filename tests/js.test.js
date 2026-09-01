@@ -82,6 +82,32 @@ describe('isParametric', () => {
   });
 });
 
+describe('audio-silent terms (ADR #38)', () => {
+  const silentOf = (src) => compileFormula(parse(src)).silent;
+
+  it('names the terms that are 0 in the audio backend', () => {
+    expect(silentOf('prev(x, y) * 0.97 + sin(t)')).toEqual(['prev()']);
+    expect(silentOf('prev(x + dx, y) - prev(x - dx, y)')).toEqual(['dx', 'prev()']);
+    expect(silentOf('sin(x + dx) + cos(y + dy)')).toEqual(['dx', 'dy']);
+  });
+
+  it('says nothing about a formula that is fully audible', () => {
+    expect(silentOf('sin(440.0 * 6.283 * t)')).toEqual([]);
+    expect(silentOf('worley(x * 4.0, y * 4.0)')).toEqual([]);
+    expect(silentOf('band(i, 255.0) * 0.007')).toEqual([]);
+  });
+
+  it('every starter and family reports its own silent terms', () => {
+    for (const { id, source } of STARTERS) {
+      const silent = silentOf(source);
+      // the Trails starter is the prev() one — it must declare it
+      if (source.includes('prev(')) expect(silent).toContain('prev()');
+      else expect(silent).not.toContain('prev()');
+      expect(Array.isArray(silent), `${id}`).toBe(true);
+    }
+  });
+});
+
 describe('emitJS output shape', () => {
   it('rejects nested vec2 like the GLSL emitter', () => {
     const nested = {

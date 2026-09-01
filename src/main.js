@@ -165,8 +165,24 @@ function initPanel() {
     sheet.clear();
     updateStatus();
     avSound.setFormula(ast); // sound follows the cue, like the panel canvas
+    showAudioNote();
     syncAudioRun();          // after updateStatus: its hint must survive
     cueChanged(); // the panel canvas is the cue preview; displays wait for TAKE
+  }
+
+  /**
+   * Say which terms of this formula are inert in sound (ADR #38). prev() and
+   * dx/dy exist for the shader and are 0 at 48 kHz, so the same formula does
+   * different things in the two backends — the limit is acceptable, staying
+   * quiet about it is not.
+   */
+  function showAudioNote() {
+    const silent = avSound.silentTerms;
+    const note = el('audio-note');
+    note.hidden = silent.length === 0;
+    if (silent.length) {
+      note.textContent = `♪ ${silent.join(', ')} = 0 in sound — you hear only the rest of the formula`;
+    }
   }
 
   /**

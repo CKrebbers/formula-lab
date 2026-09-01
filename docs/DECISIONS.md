@@ -286,6 +286,18 @@
     formula's DC before it has watched a window of it. So the synth is SILENT
     for one mean window (250 ms), then fades in over 20 ms. A quarter second
     before the first sound, in exchange for never opening with a thump.
+38. **Audio-silent terms are declared, not left implicit.** `prev()`, `dx` and
+    `dy` evaluate to 0 in the audio backend — there is no frame buffer at
+    48 kHz and no screen pixel to step by — so the same formula demonstrably
+    does something different in the two backends. That is the one place the
+    "one IR, two emitters" principle bends, and the limit is acceptable; the
+    silence about it was not. `audioSilentTerms(ast)` in core/js.js returns
+    them, `emitJS`/`compileFormula` carry them as `silent`, the panel prints a
+    line under the editor per formula ("prev() = 0 in sound — you hear only the
+    rest of the formula"), and `computeAudioStats` includes the list in its
+    result so `stats.audio` can never imply the whole formula was heard.
+    Migrated v3 records get `silent: null` (unknown), not `[]` (nothing was
+    silent) — the difference matters when ranking presets by sound.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

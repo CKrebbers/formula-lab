@@ -52,3 +52,28 @@ test('typing a formula: sound runs, scope draws, canvas changes, no errors', asy
 
   expect(errors, errors.join('\n')).toHaveLength(0);
 });
+
+test('a formula with audio-silent terms says so, per formula (ADR #38)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForSelector('#formula');
+
+  await page.fill('#formula', 'sin(440.0 * 6.283 * t)');
+  await page.dispatchEvent('#formula', 'input');
+  await page.waitForTimeout(400);
+  await expect(page.locator('#audio-note')).toBeHidden();
+
+  // the Trails-style feedback formula: prev() is 0 at 48 kHz
+  await page.fill('#formula',
+    'prev(x, y) * 0.97 + 0.06 * sin(length(x, y) * 14.0 - t * 2.0)');
+  await page.dispatchEvent('#formula', 'input');
+  await page.waitForTimeout(400);
+  await expect(page.locator('#audio-note')).toBeVisible();
+  await expect(page.locator('#audio-note')).toContainText('prev()');
+  await expect(page.locator('#audio-note')).toContainText('0 in sound');
+
+  // and it goes away again when the formula no longer needs the warning
+  await page.fill('#formula', 'worley(x * 4.0, y * 4.0) * 2.0 - 1.0');
+  await page.dispatchEvent('#formula', 'input');
+  await page.waitForTimeout(400);
+  await expect(page.locator('#audio-note')).toBeHidden();
+});
