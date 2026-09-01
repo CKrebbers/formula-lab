@@ -298,6 +298,24 @@
     result so `stats.audio` can never imply the whole formula was heard.
     Migrated v3 records get `silent: null` (unknown), not `[]` (nothing was
     silent) — the difference matters when ranking presets by sound.
+39. **Goldens compare samples with a tolerance instead of hashing bytes.** A
+    sha1 over 1024 samples breaks on the last bit of any engine or version
+    change, says nothing about how far the output moved, and the natural
+    response to that is to switch the suite off. The fingerprint (every 8th
+    frame, both channels, plus rms and peak) is compared at 1e-5: far above
+    any ULP difference, far below an audible one, and a failure reports the
+    worst deviation and where it happened. Controls in both directions: a
+    64-ULP nudge must pass, a 1e-4 offset must fail.
+    **The reason this got attention:** regenerating the goldens right after
+    ADR #37's warmup captured the first 1024 samples during the 250 ms of
+    silence — all 20 hashes became identical and the test kept passing while
+    proving nothing. Fingerprints now start at 0.4 s, and two guards make that
+    failure mode loud: every fingerprint must have rms > 1e-3, and no two
+    formulas may share one.
+    Known limit, documented rather than hidden: tolerance absorbs ULP noise,
+    but a chaotic formula (julia/kali escape decisions) can still diverge
+    materially on another engine. The difference is that it now fails with a
+    number attached instead of "hash mismatch".
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate
