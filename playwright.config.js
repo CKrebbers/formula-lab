@@ -14,8 +14,12 @@ export default defineConfig({
     baseURL: 'http://localhost:5199',
     headless: true,
     launchOptions: {
-      // software WebGL2 must work on CI runners without a GPU
-      args: ['--enable-unsafe-swiftshader'],
+      args: [
+        // software WebGL2 must work on CI runners without a GPU
+        '--enable-unsafe-swiftshader',
+        // the dropout spec starts an AudioContext without a click
+        '--autoplay-policy=no-user-gesture-required',
+      ],
     },
   },
   webServer: {

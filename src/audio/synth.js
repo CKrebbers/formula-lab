@@ -23,6 +23,25 @@ export class AVSound {
     this.startFormulaTime = 0;
     this.scan = { path: 'lissajous', freq: 110 }; // field-mode scan path
     this.onError = null;       // (message) => void
+    // dropout meter, measured on the audio thread (ADR #33)
+    this.meter = { quanta: 0, gaps: 0, gapFrames: 0, worstLagMs: 0, overruns: 0, load: 0, peakLoad: 0 };
+    this.onDropout = null;     // (meter) => void, called when gaps increases
+    this.pendingFlush = new Map();
+    this.flushId = 0;
+  }
+
+  /** Exact meter reading straight from the audio thread. The windowed reports
+   *  arrive late when the main thread is busy — do not measure with those. */
+  flushMeter(timeoutMs = 2000) {
+    if (!this.ctx || !this.playing) return Promise.resolve({ ...this.meter });
+    const id = ++this.flushId;
+    return new Promise((resolve) => {
+      this.pendingFlush.set(id, resolve);
+      this.node.port.postMessage({ type: 'meter-flush', id });
+      setTimeout(() => {
+        if (this.pendingFlush.delete(id)) resolve({ ...this.meter, stale: true });
+      }, timeoutMs);
+    });
   }
 
   async ensure() {
@@ -44,6 +63,15 @@ export class AVSound {
     });
     this.node.port.onmessage = (e) => {
       if (e.data?.type === 'formula-error') this.onError?.(e.data.message);
+      else if (e.data?.type === 'meter') {
+        const grew = e.data.gaps > this.meter.gaps;
+        this.meter = e.data;
+        if (grew) this.onDropout?.(e.data);
+        if (e.data.flush) {
+          this.pendingFlush.get(e.data.flush)?.(e.data);
+          this.pendingFlush.delete(e.data.flush);
+        }
+      }
     };
     this.gainNode = ctx.createGain();
     this.gainNode.gain.value = this.volume;
@@ -91,6 +119,7 @@ export class AVSound {
     await this.ensure();
     await this.ctx.resume();
     this.node.port.postMessage({ type: 'scan', ...this.scan });
+    this.meter = { quanta: 0, gaps: 0, gapFrames: 0, worstLagMs: 0, overruns: 0, load: 0, peakLoad: 0 };
     this.startCtxTime = this.ctx.currentTime;
     this.startFormulaTime = formulaTime;
     this.node.port.postMessage({ type: 'time', t: formulaTime });

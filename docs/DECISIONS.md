@@ -177,6 +177,34 @@
     now see the same noise cells. Perf test measures CPU time in a child
     process: a worklet thread has near-realtime priority; wall clock on a
     busy desktop measures preemption, not the DSP.
+33. **Dropouts are measured on the audio thread, and the meter is validated by
+    a negative control.** The child-process CPU-time budget test proves the DSP
+    is fast in isolation; it cannot prove "no dropouts in 30 s of real time",
+    and it had flaked once. `DropoutMeter` (dsp.js, pure so it unit-tests in
+    Node) now runs inside `process()` with two independent instruments:
+    `gaps` (rendered position vs. wall clock, tolerance 25 ms, counted once per
+    stretch of lost ground) and `overruns`/`load` (our own wall time vs. the
+    audio time produced, per 32-quantum window). `Date.now()` is the only clock
+    in AudioWorkletGlobalScope; the 25 ms tolerance and the windowed load are
+    built for its 1 ms resolution. Measured, not assumed:
+    - **Negative control (mandatory):** the first "deliberately too heavy"
+      formula ran at load 0.84 — heavy but inside budget, so the control proved
+      nothing. Four blocks of iterated maps + 8-octave fbm gives load 3.15:
+      192 gaps, 235 630 lost frames, 26 overruns. The meter reads non-zero when
+      it should.
+    - **Corpus run:** 24 presets, 30 s realtime → 0 gaps, 0 overruns, 0 skipped
+      quanta, load 0.22, worst lag 7.2 ms.
+    - **The context is 44.1 kHz, not 48 kHz.** The first corpus run looked like
+      a 2.4 s deficit; `contextQuanta`/`skipped`/`wallMs` in the report showed
+      process() saw every quantum and the audio thread's own wall clock matched
+      exactly — the test was dividing by 48000. `report()` now carries
+      `sampleRate` so no reader can repeat that mistake. Node tests still pin
+      48 kHz explicitly; only the device decides in the browser.
+    - Windowed reports reach a busy main thread late, so a reader that wants an
+      exact number calls `flushMeter()` and gets one straight from the thread.
+    - Chrome's own `AudioContext.renderCapacity` was absent in this build
+      (`underrunRatio` null), so it corroborates nothing here; the test reads it
+      when present but never depends on it.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

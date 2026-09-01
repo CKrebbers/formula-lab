@@ -71,6 +71,123 @@ export class Decimator {
 }
 
 /**
+ * Dropout meter (ADR #33). The audio thread is the only place where "did we
+ * make the deadline" is answerable, so the measurement lives there and the
+ * result is reported to the main thread.
+ *
+ * Two independent instruments, because they fail differently:
+ *
+ *  - `gaps` — the RENDERED position (currentFrame) against the frames wall
+ *    clock says should exist by now. Rendering normally runs AHEAD of the wall
+ *    clock (the device buffer), so lag is negative in health; lag growing past
+ *    GAP_TOLERANCE_MS means real time was lost, whatever the cause (us, the
+ *    thread being starved, the device). That is an audible dropout.
+ *  - `overruns` / `load` — the wall time OUR process() consumed against the
+ *    audio time it produced, per window. load >= 1 means the DSP cannot
+ *    sustain real time even with the machine to itself.
+ *
+ * Date.now() (1 ms) is the only clock in AudioWorkletGlobalScope; per quantum
+ * that is coarse, so load is accumulated over a window and the gap tolerance
+ * is far above the resolution. Truncation is unbiased across many quanta.
+ */
+export const METER_WINDOW_QUANTA = 32; // ~85 ms at 128 frames / 48 kHz
+export const GAP_TOLERANCE_MS = 25;    // lost real time before it counts as a gap
+const METER_WARMUP_QUANTA = 16;        // the device clock settles first
+
+export class DropoutMeter {
+  constructor(sampleRate, quantum = 128) {
+    this.sampleRate = sampleRate;
+    this.quantum = quantum;
+    this.windowAudioMs = (quantum * METER_WINDOW_QUANTA * 1000) / sampleRate;
+    this.reset();
+  }
+
+  /** Start (or restart) measuring. Called on run/resume: a suspended context
+   *  advances the wall clock without rendering, which is not a dropout. */
+  reset() {
+    this.warmup = METER_WARMUP_QUANTA;
+    this.startWallMs = 0;
+    this.startFrame = 0;
+    this.quanta = 0;
+    this.contextQuanta = 0;
+    this.wallMs = 0;
+    this.gaps = 0;
+    this.gapFrames = 0;
+    this.countedLagMs = 0;
+    this.worstLagMs = 0;
+    this.windowWallMs = 0;
+    this.windowQuanta = 0;
+    this.totalWallMs = 0;
+    this.peakLoad = 0;
+    this.overruns = 0;
+    this.windowsClosed = 0;
+  }
+
+  /**
+   * Account for one rendered quantum.
+   * @param {number} nowMs     wall clock after processing (Date.now())
+   * @param {number} frame     rendered frame position (currentFrame)
+   * @param {number} processMs wall time this quantum's processing took
+   * @returns {boolean} true when a reporting window just closed
+   */
+  quantum_(nowMs, frame, processMs) {
+    if (this.warmup > 0) {
+      this.warmup--;
+      this.startWallMs = nowMs;
+      this.startFrame = frame;
+      return false;
+    }
+    this.quanta++;
+    this.contextQuanta = Math.round((frame - this.startFrame) / this.quantum);
+    this.wallMs = nowMs - this.startWallMs;
+    this.totalWallMs += processMs;
+    this.windowWallMs += processMs;
+    this.windowQuanta++;
+
+    // rendered position vs. wall clock: positive lag = real time was lost
+    const producedMs = ((frame - this.startFrame) / this.sampleRate) * 1000;
+    const lagMs = nowMs - this.startWallMs - producedMs;
+    if (lagMs > this.worstLagMs) this.worstLagMs = lagMs;
+    if (lagMs > this.countedLagMs + GAP_TOLERANCE_MS) {
+      const lostMs = lagMs - this.countedLagMs;
+      this.gaps++;
+      this.gapFrames += Math.round((lostMs / 1000) * this.sampleRate);
+      this.countedLagMs = lagMs;
+    }
+
+    if (this.windowQuanta < METER_WINDOW_QUANTA) return false;
+    const load = this.windowWallMs / this.windowAudioMs;
+    if (load > this.peakLoad) this.peakLoad = load;
+    if (load >= 1) this.overruns++;
+    this.windowQuanta = 0;
+    this.windowWallMs = 0;
+    this.windowsClosed++;
+    return true;
+  }
+
+  /** Plain-object snapshot for postMessage. */
+  report() {
+    const audioMs = (this.quanta * this.quantum * 1000) / this.sampleRate;
+    return {
+      // the device decides this (44.1 kHz on most Macs, not 48 kHz) — any
+      // reader converting quanta to seconds needs it, and assuming 48000
+      // silently turns a healthy run into a fake 8 % deficit
+      sampleRate: this.sampleRate,
+      quanta: this.quanta,
+      contextQuanta: this.contextQuanta,
+      skipped: this.contextQuanta - this.quanta,
+      wallMs: this.wallMs,
+      gaps: this.gaps,
+      gapFrames: this.gapFrames,
+      worstLagMs: Math.round(this.worstLagMs * 10) / 10,
+      overruns: this.overruns,
+      load: audioMs > 0 ? this.totalWallMs / audioMs : 0,
+      peakLoad: this.peakLoad,
+    };
+  }
+}
+
+/**
  * Scan paths (ADR 001 phase 3): a FIELD formula becomes sound by walking a
  * path through the same field the shader draws, at an audible traversal rate.
  * phase ∈ [0,1) is one traversal; rowPhase moves the line path between rows.

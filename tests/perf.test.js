@@ -2,6 +2,11 @@
 // on average, with ZERO blocks over the real-time deadline (128/48000 s)
 // across a 30-second run — measured on the same SynthCore the worklet runs.
 //
+// This is a SUPPLEMENT, not the dropout proof: it measures the DSP in
+// isolation, off the audio thread. "No dropouts in 30 s of real time" is
+// proven by tests/browser/dropouts.spec.js against the real worklet, with a
+// negative control (ADR #33).
+//
 // The measurement runs in a CHILD node process (vitest workers contend for
 // cores) and uses CPU time, not wall time: a real AudioWorklet thread runs at
 // near-realtime priority and is not preempted by a busy desktop the way a

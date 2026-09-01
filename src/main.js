@@ -580,6 +580,16 @@ function initPanel() {
   el('audio-tab').addEventListener('click', () => toggleAudio('audio-tab', () => audioEngine.startTab()));
   el('audio-mic').addEventListener('click', () => toggleAudio('audio-mic', () => audioEngine.startMic()));
   avSound.onError = (message) => updateStatus(` · sound: ${message}`);
+  // dropouts are measured on the audio thread; say so instead of letting the
+  // sound quietly stutter (ADR #33). Throttled: a struggling machine reports
+  // a gap every window and the status line is not a log.
+  let lastDropoutMsg = 0;
+  avSound.onDropout = (m) => {
+    const now = performance.now();
+    if (now - lastDropoutMsg < 2000) return;
+    lastDropoutMsg = now;
+    updateStatus(` · ♪ ${m.gaps} dropout${m.gaps > 1 ? 's' : ''} (load ${m.load.toFixed(2)}) — simpler formula or lower scan rate`);
+  };
   el('snd').addEventListener('click', () => {
     sndOn = !sndOn;
     syncAudioRun();

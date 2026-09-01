@@ -11,6 +11,7 @@ class FormulaLabProcessor extends AudioWorkletProcessor {
     super();
     this.core = new SynthCore(sampleRate, { FL });
     this.running = false;
+    this.meter = new DropoutMeter(sampleRate);
     this.port.onmessage = (e) => this.onMessage(e.data);
   }
 
@@ -39,6 +40,15 @@ class FormulaLabProcessor extends AudioWorkletProcessor {
         break;
       case 'run':
         this.running = !!msg.on;
+        this.meter.reset(); // silence is not a dropout, and neither is a pause
+        break;
+      case 'meter-reset':
+        this.meter.reset();
+        break;
+      case 'meter-flush':
+        // windowed reports reach the main thread late when it is busy; a
+        // reader that wants an exact number asks for one
+        this.port.postMessage({ type: 'meter', flush: msg.id, ...this.meter.report() });
         break;
     }
   }
@@ -52,7 +62,14 @@ class FormulaLabProcessor extends AudioWorkletProcessor {
       if (r !== l) r.fill(0);
       return true; // keep the node alive; start/stop is a flag, not a rebuild
     }
+    // Date.now() is the only clock in this scope; the meter is built for its
+    // 1 ms resolution (see DropoutMeter)
+    const t0 = Date.now();
     this.core.process(l, r);
+    const t1 = Date.now();
+    if (this.meter.quantum_(t1, currentFrame, t1 - t0)) {
+      this.port.postMessage({ type: 'meter', ...this.meter.report() });
+    }
     return true;
   }
 }
