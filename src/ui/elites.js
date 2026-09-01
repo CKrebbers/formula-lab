@@ -43,9 +43,18 @@ export class ElitesPanel {
       el.classList.toggle('filled', !!entry);
       el.style.backgroundImage = entry ? `url(${entry.snapshot.thumb})` : '';
       el.title = entry
-        ? `${entry.snapshot.formula.source}\n${entry.snapshot.origin} · novelty ${entry.fitness.toFixed(3)}`
+        ? `${entry.snapshot.formula.source}\n${entry.snapshot.origin} · ${fitnessLine(entry)}`
         : `empty (entropy ${key.split(',')[0]}/10, symmetry ${key.split(',')[1]}/10)`;
       el.onclick = entry ? () => this.onPick(entry.snapshot) : null;
     }
   }
+}
+
+/** "fitness 0.412 (img 0.310 · snd 0.514)" — or the old single number for
+ *  cells won before the sound side existed (ADR #42). */
+function fitnessLine(entry) {
+  const f = entry.fitness.toFixed(3);
+  if (typeof entry.novelty !== 'number') return `novelty ${f}`;
+  const snd = typeof entry.audioNovelty === 'number' ? entry.audioNovelty.toFixed(3) : 'unheard';
+  return `fitness ${f} (img ${entry.novelty.toFixed(3)} · snd ${snd})`;
 }

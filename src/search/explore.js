@@ -16,7 +16,9 @@ export class Explorer {
   /**
    * @param {{ families: object[],
    *           evaluate: (c: {source: string, coords: string}) =>
-   *             Promise<null | { stats: object, thumb: string, novelty: number }>,
+   *             Promise<null | { stats: object, thumb: string, novelty: number,
+   *               fitness: number, audio?: object|null, audioNovelty?: number|null }>,
+   *             (novelty = image; fitness = what the grid ranks on, ADR #42)
    *           rng?: () => number }} opts
    */
   constructor({ families, evaluate, rng = Math.random }) {

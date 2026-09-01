@@ -60,15 +60,19 @@ export class ElitesGrid {
 
   /**
    * Offer a candidate to the grid.
+   * @param {object} snapshot
+   * @param {number} fitness — what the cell is won on (AV novelty, ADR #42)
+   * @param {object} [detail] — the parts that made it (novelty, audioNovelty),
+   *   kept beside the fitness so the grid can say WHY a cell was won
    * @returns {{ placed: boolean, cell: string, replaced: boolean }}
    */
-  consider(snapshot, fitness) {
+  consider(snapshot, fitness, detail = {}) {
     const cell = cellOf(snapshot.stats, this.grid);
     const existing = this.cells[cell];
     if (existing && existing.fitness >= fitness) {
       return { placed: false, cell, replaced: false };
     }
-    this.cells[cell] = { snapshot, fitness };
+    this.cells[cell] = { ...detail, snapshot, fitness };
     this.persist();
     return { placed: true, cell, replaced: !!existing };
   }

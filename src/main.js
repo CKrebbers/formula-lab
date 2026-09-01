@@ -10,6 +10,9 @@ import { TileRenderer } from './render/tile.js';
 import { HistCache } from './render/thumbs.js';
 import { computeStats, averageStats, shouldReject } from './search/filter.js';
 import { noveltyOf, luminanceHistogram } from './search/novelty.js';
+import { audioDescriptor, audioDescriptors, audioNoveltyOf, avFitness } from './search/avnovelty.js';
+import { AudioStatsRemote } from './audio/stats-remote.js';
+import AudioStatsWorker from './audio/stats-worker.js?worker&inline';
 import { initEditor } from './ui/editor.js';
 import { SliderPanel } from './ui/sliders.js';
 import { ContactSheet } from './ui/sheet.js';
@@ -36,7 +39,7 @@ import { print } from './core/print.js';
 import { lhsParamSets, randomExpr } from './search/sample.js';
 import { AudioEngine } from './audio/engine.js';
 import { AVSound } from './audio/synth.js';
-import { computeAudioStats } from './audio/stats.js';
+import { computeAudioStats, isParametric } from './audio/stats.js';
 import { Scope } from './ui/scope.js';
 import { FamilyPacks } from './families/packs.js';
 import { buildFamilyPrompt } from './families/prompt.js';
@@ -397,10 +400,20 @@ function initPanel() {
       const thumb = tileRenderer.thumbnail({ ...candState, time: 1 });
       const disp = tileRenderer.renderer.readPixels();
       const hist = luminanceHistogram(disp.pixels, disp.width, disp.height);
-      const pool = (await histCache.forSnapshots(
-        [...archive.list(), ...elites.all().map((e) => e.snapshot)]
-      )).filter(Boolean);
-      return { stats, thumb, novelty: noveltyOf(hist, pool), ast: parsed, params };
+      const known = [...archive.list(), ...elites.all().map((e) => e.snapshot)];
+      const pool = (await histCache.forSnapshots(known)).filter(Boolean);
+      const novelty = noveltyOf(hist, pool);
+
+      // the sound side (ADR #42): the same measurement a save records, taken
+      // off-thread; a field formula is heard through the session's scan path.
+      // null = not measured (worker missing or over budget) → image-only.
+      const scan = isParametric(ast) ? null : { ...avSound.scan };
+      const audio = await audioStats.measure(ast, params, scan);
+      const audioNovelty = audioNoveltyOf(audioDescriptor(audio), audioDescriptors(known));
+      return {
+        stats, thumb, novelty, audio, audioNovelty, scan,
+        fitness: avFitness(novelty, audioNovelty), ast: parsed, params,
+      };
     } catch {
       return null;
     } finally {
@@ -411,6 +424,7 @@ function initPanel() {
     }
   }
 
+  const audioStats = new AudioStatsRemote(() => new AudioStatsWorker());
   const explorer = new Explorer({ families: autonomousFamilies(FAMILIES), evaluate: evaluateCandidate });
   let autoTimer = null;
   let autoBusy = false;
@@ -439,9 +453,14 @@ function initPanel() {
           palette: Math.random() < 0.5 ? state.palette : Math.floor(Math.random() * PALETTES.length),
           smooth: Math.random() < 0.5 ? state.smooth : Math.random() < 0.3,
           tone: Math.random() < 0.5 ? state.tone : Math.floor(Math.random() * TONES.length),
+          scan: result.scan,
         });
-        snap.stats = result.stats;
-        const placed = elites.consider(snap, result.novelty);
+        // the elite carries its own sound measurement, so later candidates
+        // are ranked against how this one sounds too
+        snap.stats = { ...result.stats, audio: result.audio };
+        const placed = elites.consider(snap, result.fitness, {
+          novelty: result.novelty, audioNovelty: result.audioNovelty,
+        });
         if (placed.placed) {
           elitesPanel.refresh(elites);
           // zero-player display: the main view follows every new discovery,
@@ -457,7 +476,10 @@ function initPanel() {
           take(); // the zero-player auto-TAKEs: the display keeps moving
         }
       }
-      updateStatus(` · auto: ${elites.count()}/100 cells · ${explorer.found}/${explorer.tried} passed`);
+      const { measured, timedOut, failed } = audioStats.counts;
+      const unheard = timedOut + failed;
+      updateStatus(` · auto: ${elites.count()}/100 cells · ${explorer.found}/${explorer.tried} passed`
+        + ` · snd ${measured} heard${unheard ? `, ${unheard} unmeasured` : ''}`);
     } finally {
       autoBusy = false;
     }

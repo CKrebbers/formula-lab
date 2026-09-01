@@ -77,3 +77,35 @@ test('a formula with audio-silent terms says so, per formula (ADR #38)', async (
   await page.waitForTimeout(400);
   await expect(page.locator('#audio-note')).toBeHidden();
 });
+
+// ADR #42: the zero-player hears its candidates. The measurement runs in an
+// inline worker (the same computeAudioStats a save uses), the status line
+// counts what was heard, and a won cell says what it was won on.
+test('the zero-player ranks discoveries on sound as well as image (ADR #42)', async ({ page }) => {
+  test.setTimeout(180000);
+  const errors = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await page.goto('/');
+  await page.waitForSelector('#formula');
+  await page.click('#auto');
+  await expect(page.locator('#auto')).toHaveClass(/active/);
+
+  // at least one candidate measured off-thread, and at least one cell won
+  await expect(page.locator('#status')).toContainText(/snd [1-9]\d* heard/, { timeout: 120000 });
+  await expect(page.locator('.elite-cell.filled').first()).toBeAttached({ timeout: 60000 });
+
+  // every cell won in this session carries fitness = image · sound
+  const titles = await page.locator('.elite-cell.filled').evaluateAll((els) => els.map((e) => e.title));
+  expect(titles.length).toBeGreaterThan(0);
+  for (const t of titles) {
+    expect(t).toMatch(/fitness \d\.\d{3} \(img \d\.\d{3} · snd (\d\.\d{3}|unheard)\)/);
+  }
+  // and with a fresh grid, the first candidate could not have been unheard
+  // for lack of a pool: an empty pool scores 1, so at least one cell is heard
+  expect(titles.some((t) => /snd \d\.\d{3}\)/.test(t)), titles.join('\n')).toBe(true);
+
+  await page.click('#auto');
+  await expect(page.locator('#auto')).not.toHaveClass(/active/);
+  expect(errors, errors.join('\n')).toHaveLength(0);
+});
