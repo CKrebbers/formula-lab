@@ -102,6 +102,12 @@
     #auto.active { border-color: #8be9b6; color: #8be9b6; }
     #glitch.active { border-color: #ff5566; color: #ff5566; }
     #audio-tab.active, #audio-mic.active { border-color: #8be9b6; color: #8be9b6; }
+    #snd.active { border-color: #8be9b6; color: #8be9b6; }
+    #vol { width: 70px; accent-color: #8be9b6; align-self: center; }
+    #scope {
+      position: fixed; right: 8px; bottom: 8px; width: 220px; height: 220px;
+      border: 1px solid #565a75; background: rgba(15, 15, 27, 0.85);
+    }
     #chaos { width: 70px; accent-color: #ff5566; align-self: center; }
     #mods { display: flex; flex-direction: column; gap: 2px; border: 1px solid #565a75; padding: 6px; }
     .mods-label { font-size: 10px; color: #565a75; padding-bottom: 2px; }
@@ -214,6 +220,8 @@
       <button id="mods-toggle" class="slider-btn" title="modulator rack: algorithmic parameter manipulation">mods</button>
       <button id="audio-tab" class="slider-btn" title="system audio: share the Chrome TAB that plays music and enable 'share tab audio' (macOS cannot share whole-screen audio)">♪ tab</button>
       <button id="audio-mic" class="slider-btn" title="microphone, or a loopback device like BlackHole for full system audio">♪ mic</button>
+      <button id="snd" class="slider-btn" title="sound: hear this formula — f(t) formulas play now, e.g. vec2(sin(440.0*6.283*t), sin(662.0*6.283*t))">▶ snd</button>
+      <input id="vol" type="range" min="0" max="1" step="0.01" value="0.5" title="sound volume" />
     </div>
     <div id="mods" hidden></div>
     <div id="packs" hidden></div>
@@ -235,6 +243,7 @@
     <div id="elites"></div>
     <div id="archive"></div>
   </div>
+  <canvas id="scope" hidden></canvas>
   <div id="status">loading…</div>
   <script type="module" src="/src/main.js"></script>
 </body>

@@ -34,6 +34,8 @@ import { substituteParams } from './core/constants.js';
 import { print } from './core/print.js';
 import { lhsParamSets, randomExpr } from './search/sample.js';
 import { AudioEngine } from './audio/engine.js';
+import { AVSound } from './audio/synth.js';
+import { Scope } from './ui/scope.js';
 import { FamilyPacks } from './families/packs.js';
 import { buildFamilyPrompt } from './families/prompt.js';
 import { PacksPanel } from './ui/packs.js';
@@ -73,6 +75,9 @@ function initPanel() {
   const cue = new CueProgram((type, payload) => sync.send(type, payload));
   const modStack = new ModStack();
   const audioEngine = new AudioEngine();
+  const avSound = new AVSound();
+  const scope = new Scope(el('scope'));
+  let sndOn = false;
   const packs = new FamilyPacks(localStorage);
 
   const allFamilies = () => [...FAMILIES, ...packs.enabledFamilies()];
@@ -157,8 +162,33 @@ function initPanel() {
     };
     sliders.rebuild(params);
     sheet.clear();
+    avSound.setFormula(ast); // sound follows the cue, like the panel canvas
+    syncAudioRun();
     updateStatus();
     cueChanged(); // the panel canvas is the cue preview; displays wait for TAKE
+  }
+
+  /**
+   * Sound plays when the button is on AND the formula is parametric (pure
+   * f(t)); field formulas get a scan path in phase 3 of the AV layer (ADR 001).
+   */
+  function syncAudioRun() {
+    const parametric = !!avSound.compiled?.isParametric;
+    const want = sndOn && parametric;
+    el('snd').classList.toggle('active', sndOn);
+    scope.show(want);
+    if (want && !avSound.playing) {
+      avSound.start(state.time).catch((err) => {
+        sndOn = false;
+        el('snd').classList.remove('active');
+        updateStatus(` · sound: ${err.message}`);
+      });
+    } else if (!want && avSound.playing) {
+      avSound.stop();
+    }
+    if (sndOn && !parametric) {
+      updateStatus(' · ▶ waits: sound plays f(t) formulas — try vec2(sin(440.0*6.283*t), sin(662.0*6.283*t))');
+    }
   }
 
   function setCoords(index) {
@@ -543,6 +573,13 @@ function initPanel() {
   }
   el('audio-tab').addEventListener('click', () => toggleAudio('audio-tab', () => audioEngine.startTab()));
   el('audio-mic').addEventListener('click', () => toggleAudio('audio-mic', () => audioEngine.startMic()));
+  avSound.onError = (message) => updateStatus(` · sound: ${message}`);
+  el('snd').addEventListener('click', () => {
+    sndOn = !sndOn;
+    syncAudioRun();
+    if (!sndOn) updateStatus();
+  });
+  el('vol').addEventListener('input', (e) => avSound.setVolume(parseFloat(e.target.value)));
   el('cap').addEventListener('click', () => {
     const n = sliders.captureAll();
     updateStatus(n ? ` · ⏺ captured ${n} gesture${n > 1 ? 's' : ''} (mode ↺)` : ' · ⏺ no recent movement to capture');
@@ -674,7 +711,9 @@ function initPanel() {
     // share a formula, so sliders/LFOs/audio keep driving the live image
     if (frameCount++ % 2 === 0) {
       cue.live('params', { params: renderState.params }, textarea.value);
+      avSound.setParams(renderState.params, state.mouse); // sound hears the mods too
     }
+    if (avSound.playing) scope.draw(avSound, renderState.params, state.mouse);
     if (renderState.coords !== lastSentCoords) {
       if (cue.live('coords', { coords: renderState.coords }, textarea.value)) {
         lastSentCoords = renderState.coords;
