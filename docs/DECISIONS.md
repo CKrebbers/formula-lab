@@ -156,6 +156,27 @@
     warp) so the first screen shows the instrument's range. A click cues AND takes,
     because a cold start must yield a living image, not homework. Thumbnails render
     after first paint (a shader compile each) and restore the panel's shader.
+31. **AV layer (one AST, two backends) — full plan and risks in
+    docs/adr/001-av-layer.md.** The AST is the IR; `core/js.js` emits a JS twin
+    of the GLSL transpile against `core/jsruntime.js` (FL, mirrors every fl_*
+    helper), `core/interp.js` is the reference evaluator the parity harness
+    stands on. The worklet loads ONE Blob module (jsruntime+dsp+glue);
+    formulas travel as postMessage strings compiled with new Function — the
+    AST is already whitelisted, so "never eval user text" holds. Chain (in
+    order, at 4× oversampling): NaN guard → 2× DC blocker (a ramp leaves a
+    constant after one differentiator) → peak normalizer (slow release) →
+    tanh → 192-tap decimation FIR with its stopband at the output Nyquist →
+    hard [-1,1] clamp (the FIR can ring past tanh). 20 ms formula crossfade at
+    the raw stage, 200 ms soft start over the blockers' step response.
+    prev()/dx/dy are 0 in the audio backend. Sound follows the panel (cue).
+32. **The JS hash emulates the GPU's float32 op for op (Math.fround).**
+    Measured, not assumed: in float64 the hash's p·p≈8000-through-fract chain
+    amplifies representation error into DIFFERENT cell values than the GPU —
+    worley image correlation 0.20. With fround mirroring: max pixel diff < 1
+    byte, correlation > 0.9999 across noise/fbm/worley/hash. Image and sound
+    now see the same noise cells. Perf test measures CPU time in a child
+    process: a worklet thread has near-realtime priority; wall clock on a
+    busy desktop measures preemption, not the DSP.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

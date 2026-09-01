@@ -29,8 +29,12 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      # the suite gates the deploy: a red build never reaches the live URL
+      # the suites gate the deploy: a red build never reaches the live URL
       - run: npm test
+      # browser suite: GLSL<->reference parity on real renders, worklet audio
+      # safety in OfflineAudioContext, e2e (ADR 001 phase 2)
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -8,9 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "playwright": "^1.62.1",
     "vite": "^5.4.0",
     "vite-plugin-singlefile": "^2.0.0",
     "vitest": "^2.0.0"

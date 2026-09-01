@@ -9,13 +9,22 @@ function fract(v) { return v - Math.floor(v); }
 function glmod(a, b) { return a - b * Math.floor(a / b); } // GLSL mod, not JS %
 function clamp(v, lo, hi) { return Math.min(Math.max(v, lo), hi); }
 
+// The hash amplifies rounding by ~4 orders of magnitude (p*p products near
+// 8000 go through fract), so float64 would give DIFFERENT cell values than
+// the float32 GPU — image and sound would see different noise. Every step is
+// therefore rounded to float32 with Math.fround, mirroring the shader op for
+// op. (fr is a single CPU instruction; V8 optimizes it well.)
+const fr = Math.fround;
 function hash2(px, py) {
-  px = fract(px * 123.34);
-  py = fract(py * 456.21);
-  const d = px * (px + 45.32) + py * (py + 45.32);
-  px += d;
-  py += d;
-  return fract(px * py);
+  px = fr(px * fr(123.34));
+  py = fr(py * fr(456.21));
+  px = fr(px - Math.floor(px));
+  py = fr(py - Math.floor(py));
+  const d = fr(fr(px * fr(px + fr(45.32))) + fr(py * fr(py + fr(45.32))));
+  px = fr(px + d);
+  py = fr(py + d);
+  const m = fr(px * py);
+  return fr(m - Math.floor(m));
 }
 
 function noise2(px, py) {
@@ -37,8 +46,9 @@ function fbm2(px, py, octaves) {
     value += amplitude * noise2(px, py);
     total += amplitude;
     amplitude *= 0.5;
-    px = px * 2 + 17;
-    py = py * 2 + 17;
+    // f32 like the GPU: the next octave's coords feed the hash again
+    px = fr(fr(px * 2) + 17);
+    py = fr(fr(py * 2) + 17);
   }
   return total > 0 ? value / total : 0;
 }
