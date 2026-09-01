@@ -13,10 +13,12 @@ unfinished.
   §7 entropy/symmetry as variables, GPU-measured per frame by a 128² probe
   pass (`render/self.js`). `resetFeedback()` resets them too; tiles warm on
   `hasMemory`. Audio hears them through the params message like `mot`.
-- **Tests**: 395 unit (31 files, `npm test`, ~1 min) + 32 browser
+- **⏱ automation speed (ADR #44)**: `AutoClock` — one knob slows every LFO,
+  gesture and modulator; never put wall-time things (glide, capture, t) on it.
+- **Tests**: 399 unit (31 files, `npm test`, ~1 min) + 32 browser
   (4 specs, `npm run test:browser`, ~3 min, includes a 30 s realtime run and
   a zero-player run that waits for a real off-thread measurement).
-  Single-file build 190 kB (the inline stats worker is +33 kB of it).
+  Single-file build 192 kB (the inline stats worker is +33 kB of it).
 - **A1 shipped (ADR #42)**: the zero-player ranks on `stats.audio.pre` too.
   `search/avnovelty.js` (descriptor + fitness), `audio/stats-worker.js` +
   `audio/stats-remote.js` (the same `computeAudioStats`, off-thread, 6 s

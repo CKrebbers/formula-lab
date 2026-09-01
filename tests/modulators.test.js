@@ -111,3 +111,30 @@ describe('modulator stack', () => {
     expect(out.modulating).toBe(true);
   });
 });
+
+describe('modulator stack: the global speed', () => {
+  it('half speed reaches the same drift at twice the wall time, with the envelope still in wall time', () => {
+    const make = (speed) => {
+      const stack = new ModStack(() => 0.7);
+      stack.setSpeed(speed);
+      stack.tick(0, PARAMS, RANGES);
+      stack.toggle('drift', true);
+      stack.set('drift', 'amount', 1);
+      return stack;
+    };
+    const fast = make(1);
+    const slow = make(0.5);
+    // well past the 0.8 s toggle envelope in both, so only the modulator clock differs
+    let f, s;
+    for (let k = 1; k <= 180; k++) f = fast.tick(k / 60, PARAMS, RANGES);
+    for (let k = 1; k <= 360; k++) s = slow.tick(k / 60, PARAMS, RANGES);
+    expect(slow.clock.time).toBeCloseTo(fast.clock.time, 6); // both at 3 s of automation time
+    expect(s.params.a).toBeCloseTo(f.params.a, 1);
+    expect(s.params.b).toBeCloseTo(f.params.b, 1);
+    // the envelope is not slowed: one second after enabling, half speed is fully faded in too
+    const early = make(0.5);
+    const e = run(early, 1 / 60, 1);
+    expect(early.get('drift').env).toBe(1);
+    expect(e.modulating).toBe(true);
+  });
+});

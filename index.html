@@ -89,6 +89,9 @@
     #range-hint { font-size: 9px; color: #565a75; display: flex; gap: 6px; align-items: center; }
     #range-hint span { flex: 1; }
     #range-hint .slider-btn { font-size: 9px; line-height: 1.4; }
+    #range-hint #auto-speed-label { flex: none; color: #565a75; }
+    #range-hint #auto-speed-label.active { color: #8be9b6; }
+    #auto-speed { width: 60px; accent-color: #8be9b6; align-self: center; }
     #audio-note, #cam-note { font-size: 9px; color: #8be9b6; opacity: 0.75; }
     #sliders:empty + #range-hint { display: none; }
     .slider-name { width: 24px; text-align: right; color: #fafbf6; }
@@ -224,7 +227,7 @@
     <div id="audio-note" hidden></div>
     <div id="cam-note" hidden></div>
     <div id="sliders"></div>
-    <div id="range-hint"><span>ranges: push an end = stretch · » « = shorten toward value · dbl-click = re-center · scroll = zoom · shift+scroll = nudge</span><button id="step" class="slider-btn" title="step scale for drag, arrows, scroll and shift+scroll: fine / ×1 / coarse ([ and ] keys)">×1</button></div>
+    <div id="range-hint"><span>ranges: push an end = stretch · » « = shorten toward value · dbl-click = re-center · scroll = zoom · shift+scroll = nudge</span><button id="step" class="slider-btn" title="step scale for drag, arrows, scroll and shift+scroll: fine / ×1 / coarse ([ and ] keys)">×1</button><span id="auto-speed-label" title="automation speed: how fast everything that moves by itself moves">⏱ ×1</span><input id="auto-speed" type="range" min="0" max="1" step="0.01" value="1" title="automation speed — slows every LFO, gesture, modulator and glitch at once (left = 50× slower; double-click = real time)" /></div>
     <div id="actions">
       <button id="reroll-all" class="slider-btn" title="reroll all unlocked params">⟳ all</button>
       <button id="coords" class="slider-btn" title="coordinates: cartesian → polar → toroidal">cart</button>

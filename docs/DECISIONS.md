@@ -416,3 +416,16 @@
     (the FFT is too dear per frame), a non-square probe (the §7 tiles are
     square, so the units match), async PBO readback (measure first: the 128²
     draw is what the tiles already cost).
+44. **One global automation speed, as a clock, not a rate rewrite.** Clay's ask
+    (2026-09-01): everything that moves by itself is often far too fast to
+    watch — one knob to slow it all. Implemented as `AutoClock`
+    (`core/automate.js`): wall time in, automation time out, integrated at a
+    speed, so turning the knob changes the slope and never the phase (a rate
+    rewrite on every LFO would jump every phase and touch every saved rate).
+    Sliders' LFOs and gestures and the whole mod rack — glitch included — tick
+    on it; glides, the capture history, the toggle fade of the mods and the
+    formula's own `t` stay in wall time (slowing `t` would be a different
+    instrument: it changes the image, not its steering). Knob is log-spaced
+    ×0.02..×1 (`speedFromKnob`), double-click = ×1, remembered in
+    localStorage. The zero-player's 900 ms tick is deliberately NOT on this
+    clock: it is a search cadence, not an automation.

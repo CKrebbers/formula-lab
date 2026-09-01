@@ -56,8 +56,11 @@ AND SINCE THEN (D2 rest, ADR #43): **a formula can read its own previous
 frame's stats** — `s_ent`, `s_sym` (§7 entropy/symmetry, 0..1), measured on
 the GPU every frame at 128² by a probe pass in the renderer (`render/self.js`)
 and fed back as uniforms. Family `self.homeostat` is dead without them.
-Counts as of 2026-09-01: 395 unit tests (31 files) + 32 browser tests
-(Playwright, `npm run test:browser`), single-file build ~190 kB.
+AND (ADR #44): **one global automation speed** — `AutoClock` in core/automate.js;
+LFOs, gestures and the mod rack tick on it, the ⏱ knob (×0.02..×1) slows them
+all without a phase jump. t, glides and capture stay in wall time.
+Counts as of 2026-09-02: 399 unit tests (31 files) + 32 browser tests
+(Playwright, `npm run test:browser`), single-file build ~192 kB.
 
 Built in one marathon session (24 commits, ~5,500 lines, 201 vitest tests green,
 single-file build ~94 kB). v1, v2 and v3's zero-player are DONE, plus a large

@@ -46,6 +46,7 @@ import { buildFamilyPrompt } from './families/prompt.js';
 import { PacksPanel } from './ui/packs.js';
 import { FloatingPanel } from './ui/panel.js';
 import { STEP_SCALES, STEP_LABELS, stepIndex } from './core/steps.js';
+import { speedFromKnob } from './core/automate.js';
 
 const VIEW = new URLSearchParams(location.search).get('view');
 if (VIEW === 'display') {
@@ -115,6 +116,26 @@ function initPanel() {
     el('step').classList.toggle('active', idx !== 1);
   };
   el('step').addEventListener('click', () => setStep((stepIdx + 1) % STEP_SCALES.length));
+
+  // one speed for everything that moves by itself: LFOs, gestures, the mod
+  // rack, glitch. Remembered — a slow evening stays slow.
+  const SPEED_KEY = 'formula-lab.auto-speed';
+  const speedKnob = el('auto-speed');
+  const setAutoSpeed = (knob, remember = true) => {
+    const speed = speedFromKnob(knob);
+    sliders.setAutoSpeed(speed);
+    modStack.setSpeed(speed);
+    speedKnob.value = knob;
+    el('auto-speed-label').textContent = `⏱ ×${speed < 0.1 ? speed.toFixed(2) : speed.toFixed(1)}`;
+    el('auto-speed-label').classList.toggle('active', speed < 0.999);
+    if (remember) { try { localStorage.setItem(SPEED_KEY, String(knob)); } catch { /* blocked */ } }
+  };
+  speedKnob.addEventListener('input', () => setAutoSpeed(parseFloat(speedKnob.value)));
+  speedKnob.addEventListener('dblclick', () => setAutoSpeed(1));
+  {
+    const saved = parseFloat(localStorage.getItem(SPEED_KEY) ?? '1');
+    setAutoSpeed(Number.isFinite(saved) ? saved : 1, false);
+  }
 
   const sheet = new ContactSheet(el('sheet'), {
     onPromoteParams(params) {

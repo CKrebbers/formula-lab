@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   MODES, nextMode, createAutomation, evaluate, glideValue, swapAutomationSettings, shape,
-  extractGesture,
+  extractGesture, AutoClock, speedFromKnob, SLOWEST_SPEED,
 } from '../src/core/automate.js';
 
 const RANGE = { min: -2, max: 6 };
@@ -194,5 +194,34 @@ describe('automate: glideValue', () => {
 
   it('zero duration jumps immediately', () => {
     expect(glideValue(1, 5, 0, 0)).toBe(5);
+  });
+});
+
+describe('automate: the global speed clock', () => {
+  it('integrates wall time at its speed and never jumps when the speed changes', () => {
+    const clock = new AutoClock();
+    expect(clock.advance(10)).toBe(0); // first feed sets the origin
+    expect(clock.advance(11)).toBeCloseTo(1);
+    clock.speed = 0.1;
+    expect(clock.advance(12)).toBeCloseTo(1.1); // no phase jump: only the slope changed
+    clock.speed = 1;
+    expect(clock.advance(12.5)).toBeCloseTo(1.6);
+    expect(clock.advance(12)).toBeCloseTo(1.6); // time never runs backwards
+  });
+
+  it('slows an LFO: half speed = the same value at twice the wall time', () => {
+    const a = auto({ mode: 'sine', rate: 0.7, depth: 0.5 });
+    const fast = new AutoClock(1);
+    const slow = new AutoClock(0.5);
+    fast.advance(0);
+    slow.advance(0);
+    expect(evaluate(a, RANGE, slow.advance(4))).toBeCloseTo(evaluate(a, RANGE, fast.advance(2)));
+  });
+
+  it('maps the knob log-spaced: right = ×1, left = the slowest speed', () => {
+    expect(speedFromKnob(1)).toBe(1);
+    expect(speedFromKnob(0)).toBeCloseTo(SLOWEST_SPEED);
+    expect(speedFromKnob(0.5)).toBeCloseTo(Math.sqrt(SLOWEST_SPEED));
+    expect(speedFromKnob(2)).toBe(1); // clamped
   });
 });

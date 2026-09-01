@@ -8,6 +8,7 @@ import { sliderStep, wheelZoomFactor, wheelNudge } from '../core/steps.js';
 import {
   createAutomation, evaluate, nextMode, glideValue, swapAutomationSettings,
   extractGesture, MODE_ICONS, AUDIO_MODES, INPUT_MODES,
+  AutoClock,
 } from '../core/automate.js';
 
 const HISTORY_SECONDS = 30; // rolling take: capture-last-take reads from this
@@ -411,6 +412,12 @@ export class SliderPanel {
     }
   }
 
+  /** Speed of every automation at once (1 = real time, 0.02 = fifty times slower). */
+  setAutoSpeed(speed) {
+    this.autoClock ??= new AutoClock();
+    this.autoClock.speed = speed;
+  }
+
   /**
    * Advance glides + automation; call once per frame.
    * @param {number} t seconds
@@ -418,6 +425,10 @@ export class SliderPanel {
    */
   tick(t, audio = null) {
     this.lastT = t;
+    // automation runs on the global (slowable) clock; glides and the rolling
+    // take stay on the wall clock
+    this.autoClock ??= new AutoClock();
+    const ta = this.autoClock.advance(t);
 
     for (const [name, glide] of Object.entries(this.glides)) {
       const row = this.rows[name];
@@ -438,7 +449,7 @@ export class SliderPanel {
     for (const [name, auto] of Object.entries(this.autos)) {
       if (auto.mode === 'off' || this.locks[name]) continue;
       const { slider, readout, range } = this.rows[name];
-      const v = evaluate(auto, range, t, audio);
+      const v = evaluate(auto, range, ta, audio);
       slider.value = v;
       readout.textContent = formatValue(v);
       this.onChange(name, v);

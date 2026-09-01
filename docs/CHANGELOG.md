@@ -2,6 +2,27 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-09-02 — ⏱ one speed for everything that moves by itself (ADR #44)
+
+**status:** Clay, mid-session: "een algemene knop die alle automations veel
+langzamer maakt — het gaat vaak veel te snel". Shipped as one knob next to
+the step scale.
+
+- `AutoClock` in `core/automate.js`: an integrating clock at a speed; LFOs,
+  gestures (`ui/sliders.js`) and the mod rack incl. glitch
+  (`core/modulators.js`) run on it. Changing the speed never jumps a phase.
+  Glides, capture history, the mods' toggle fade and the formula's `t` stay
+  in wall time.
+- Knob `⏱ ×1` in the ranges row: log-spaced ×0.02..×1, double-click resets,
+  remembered (`formula-lab.auto-speed`). Label turns green when slowed.
+- Tests: +3 unit (`tests/automate.test.js`: integration, no phase jump, LFO at
+  half speed, knob mapping), +1 (`tests/modulators.test.js`: drift at half
+  speed matches at double wall time, envelope untouched). 399 unit + 32
+  browser. Build 192 kB.
+
+**besluit:** done. Not on the clock: the zero-player tick (search cadence),
+`t` itself. If Clay wants the image slower too, that is a separate `t` scale.
+
 ## 2026-09-01 — D2 rest: the image reads its own stats (ADR #43)
 
 **status:** `s_ent` and `s_sym` are formula variables — the previous frame's

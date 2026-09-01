@@ -5,6 +5,7 @@
 // Pure + injectable rng — testable in Node.
 
 import { GlitchEngine } from './glitch.js';
+import { AutoClock } from './automate.js';
 
 const ENV_SECONDS = 0.8; // toggle fade for smooth modulators
 
@@ -88,6 +89,7 @@ export class ModStack {
     this.rng = rng;
     this.glitch = new GlitchEngine(rng);
     this.lastT = 0;
+    this.clock = new AutoClock(); // the global automation speed (see automate.js)
     this.mods = [
       { id: 'drift', name: 'drift', hint: 'slow living wander around every center', active: false, env: 0, amount: 0.3, rate: 0.5, state: {}, fn: driftTick },
       { id: 'chase', name: 'chase', hint: 'glides to fresh random targets — smooth sibling of glitch', active: false, env: 0, amount: 0.4, rate: 0.5, state: {}, fn: chaseTick },
@@ -120,16 +122,25 @@ export class ModStack {
     if (mod.id === 'glitch' && key === 'rate') this.glitch.setRate(value);
   }
 
+  /** Speed of every modulator at once, glitch included (1 = real time). */
+  setSpeed(speed) {
+    this.clock.speed = speed;
+  }
+
   /** Render-time overlay: offsets from all smooth mods, then glitch on top. */
-  tick(t, baseParams, ranges) {
-    const dt = Math.min(0.1, Math.max(0.001, t - this.lastT));
-    this.lastT = t;
+  tick(wallT, baseParams, ranges) {
+    // the toggle envelope fades in wall time; the modulators themselves run on
+    // the automation clock, so the speed knob slows them without a jump
+    const wallDt = Math.min(0.1, Math.max(0.001, wallT - this.lastT));
+    this.lastT = wallT;
+    const t = this.clock.advance(wallT);
+    const dt = Math.max(1e-6, wallDt * this.clock.speed);
 
     let anySmooth = false;
     for (const mod of this.mods) {
       if (mod.id === 'glitch') continue;
       const target = mod.active ? 1 : 0;
-      mod.env = Math.min(1, Math.max(0, mod.env + (target === 1 ? dt : -dt) / ENV_SECONDS));
+      mod.env = Math.min(1, Math.max(0, mod.env + (target === 1 ? wallDt : -wallDt) / ENV_SECONDS));
       if (mod.env > 0) anySmooth = true;
     }
 

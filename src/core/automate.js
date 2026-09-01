@@ -117,6 +117,36 @@ export function extractGesture(times, values, {
   };
 }
 
+/**
+ * One global speed for everything that moves by itself. LFOs, gestures and
+ * the mod rack tick on THIS clock instead of the wall clock, so one knob
+ * slows all of them at once (Clay, 2026-09-01: automations are often far too
+ * fast to watch). The clock integrates — changing the speed never jumps a
+ * phase — and glides, capture history and the formula's own t stay real-time.
+ */
+export class AutoClock {
+  constructor(speed = 1) {
+    this.speed = speed;
+    this.time = 0;
+    this.last = null;
+  }
+
+  /** Feed the wall clock (seconds), get automation time back. */
+  advance(t) {
+    if (this.last !== null) this.time += Math.max(0, t - this.last) * this.speed;
+    this.last = t;
+    return this.time;
+  }
+}
+
+/** Slowest speed the knob reaches (left end); right end = ×1, log-spaced between. */
+export const SLOWEST_SPEED = 0.02;
+
+/** Knob position 0..1 → speed multiplier SLOWEST_SPEED..1. */
+export function speedFromKnob(v) {
+  return Math.pow(SLOWEST_SPEED, 1 - Math.min(1, Math.max(0, v)));
+}
+
 /** Waveform in cycles → −1..1. */
 function wave(mode, x) {
   switch (mode) {
