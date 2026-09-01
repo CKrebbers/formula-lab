@@ -22,7 +22,7 @@ class FormulaLabProcessor extends AudioWorkletProcessor {
           const fn = new Function('FL', 'env', 'out', msg.body);
           // smoke-test once so a broken body fails HERE, not in process()
           fn(FL, this.core.env, [0, 0, 0]);
-          this.core.setFormula({ fn, mode: msg.mode }, !!msg.spatial);
+          this.core.setFormula({ fn, mode: msg.mode, feedback: !!msg.feedback }, !!msg.spatial);
           this.port.postMessage({ type: 'formula-ok' });
         } catch (err) {
           this.port.postMessage({ type: 'formula-error', message: String(err?.message ?? err) });

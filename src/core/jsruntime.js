@@ -155,7 +155,9 @@ export const FL = {
   bnot: (a) => ~i32(a),
   shl: (a, b) => (i32(a) << (clamp(b, 0, 31) | 0)),
   shr: (a, b) => (i32(a) >> (clamp(b, 0, 31) | 0)),
-  // no frame buffer exists at audio rate — prev() is 0 in this backend (ADR 001)
+  // prev() reads a SynthCore's scan-written feedback grid, bound per core
+  // (audio/dsp.js, ADR #43). Outside a core — the scope plot, the reference
+  // evaluator — there is no buffer, and prev() reads 0: the direct part only.
   prev: () => 0,
   // the camera is a texture on the GPU; the audio backend hears none of it (ADR #41)
   cam: () => 0,

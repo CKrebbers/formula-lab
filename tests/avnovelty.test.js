@@ -52,14 +52,22 @@ describe('audioDescriptor', () => {
   });
 
   it('a measurement taken with audio-silent terms inert is not a descriptor', () => {
+    const cam = measure('cam(x, y) * 0.5 + 0.3 * sin(t * 440.0 * 6.283)', { path: 'line', freq: 110 });
+    expect(cam.silent).toEqual(['cam()']);
+    expect(cam.pre.rms).toBeGreaterThan(0); // it made a sound — a partial one
+    expect(audioDescriptor(cam)).toBeNull(); // so it is not ranked on it
+  });
+
+  it('a prev() formula is heard whole, so it IS ranked on sound (ADR #43)', () => {
     const trails = measure('prev(x, y) * 0.97 + 0.06 * sin(length(x, y) * 14.0 - t * 2.0)',
       { path: 'lissajous', freq: 110 });
-    expect(trails.silent).toEqual(['prev()']);
-    expect(trails.pre.rms).toBeGreaterThan(0); // it made a sound — a partial one
-    expect(audioDescriptor(trails)).toBeNull(); // so it is not ranked on it
-    const cam = measure('cam(x, y) * sin(t * 3.0)', { path: 'line', freq: 110 });
-    expect(cam.silent).toEqual(['cam()']);
-    expect(audioDescriptor(cam)).toBeNull();
+    expect(trails.silent).toEqual([]);
+    const d = audioDescriptor(trails);
+    expect(d).not.toBeNull();
+    // and the descriptor hears the feedback: it sits away from the driver alone
+    const driver = audioDescriptor(measure('0.06 * sin(length(x, y) * 14.0 - t * 2.0)',
+      { path: 'lissajous', freq: 110 }));
+    expect(audioNoveltyOf(d, [driver])).toBeGreaterThan(0.05);
   });
 });
 
@@ -104,7 +112,7 @@ describe('audio novelty ranks on pre.rms', () => {
       { stats: { audio: mid } },
       {},
       null,
-      { stats: { audio: { ...mid, silent: ['prev()'] } } },
+      { stats: { audio: { ...mid, silent: ['cam()'] } } },
     ]);
     expect(pool).toHaveLength(1);
   });
@@ -121,7 +129,7 @@ describe('avFitness', () => {
   });
 
   it('a silent-term formula is not outranked by a sound-alike with equal image novelty', () => {
-    // same look; A sounds exactly like the pool (audio novelty 0), B has prev()
+    // same look; A sounds exactly like the pool (audio novelty 0), B has cam()
     const a = avFitness(0.3, 0);
     const b = avFitness(0.3, null);
     expect(b).toBeGreaterThan(a); // B keeps its image novelty; A is genuinely less new

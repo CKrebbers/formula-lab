@@ -271,13 +271,113 @@ export function scanXY(path, phase, rowPhase, out) {
 }
 
 /**
+ * Audio-rate feedback for prev(x, y) (ADR #43). The shader reads the previous
+ * FRAME; sound has no frame, but it has the scan: every sample the path
+ * visits one cell of this grid, so "the previous pass of the scan over this
+ * cell" is the audio twin of "the previous frame at this pixel". Trails on
+ * screen become a comb/delay at the scan rate; the neighbour idiom
+ * prev(x + dx, y) reads the next cell, because dx IS one cell here.
+ *
+ * Mirrors render/feedback.js where it can: reset to black (-1, ADR #25),
+ * values clamped to -1..1 on write (ADR #23, so plain prev(x, y) is a hold,
+ * never a runaway), bilinear reads that clamp to the edge. Differences,
+ * deliberate: a cell is written ONCE per visit — the mean of the samples the
+ * scan spent inside it — so consecutive samples in one cell all read the
+ * previous pass, not each other; cells the path never crosses stay black;
+ * cell values sit at the cell's lower-left corner so the line raster's 64
+ * rows land exactly on the 64 grid rows (row k reads row k, not a blend).
+ *
+ * Zero imports like the rest of this file: it is embedded in the worklet.
+ */
+export const FEEDBACK_CELLS = 64;
+
+export class ScanFeedback {
+  constructor(cells = FEEDBACK_CELLS) {
+    this.n = cells;
+    this.step = 2 / cells; // dx / dy in formula coordinates: one cell
+    this.grid = new Float32Array(cells * cells);
+    this.pendingCell = -1;
+    this.pendingSum = 0;
+    this.pendingCount = 0;
+    this.reset();
+  }
+
+  /** Wipe to black: first use, formula change (ADR #25). */
+  reset() {
+    this.grid.fill(-1);
+    this.pendingCell = -1;
+    this.pendingSum = 0;
+    this.pendingCount = 0;
+  }
+
+  /** Index of the cell that holds formula coordinate (x, y); NaN → 0. */
+  cellOf(x, y) {
+    const n = this.n;
+    let cx = Math.floor((x + 1) * 0.5 * n);
+    let cy = Math.floor((y + 1) * 0.5 * n);
+    if (!(cx > 0)) cx = 0; else if (cx >= n) cx = n - 1;
+    if (!(cy > 0)) cy = 0; else if (cy >= n) cy = n - 1;
+    return cy * n + cx;
+  }
+
+  /** Bilinear read at formula coordinates, clamped to the edge. */
+  read(x, y) {
+    const n = this.n;
+    let u = (x + 1) * 0.5 * n;
+    let v = (y + 1) * 0.5 * n;
+    if (!(u > 0)) u = 0; else if (u > n - 1) u = n - 1;
+    if (!(v > 0)) v = 0; else if (v > n - 1) v = n - 1;
+    const x0 = Math.floor(u);
+    const y0 = Math.floor(v);
+    const x1 = x0 + 1 < n ? x0 + 1 : x0;
+    const y1 = y0 + 1 < n ? y0 + 1 : y0;
+    const fx = u - x0;
+    const fy = v - y0;
+    const g = this.grid;
+    const top = g[y0 * n + x0] + (g[y0 * n + x1] - g[y0 * n + x0]) * fx;
+    const bottom = g[y1 * n + x0] + (g[y1 * n + x1] - g[y1 * n + x0]) * fx;
+    return top + (bottom - top) * fy;
+  }
+
+  /**
+   * The scan produced `value` at (x, y). Accumulated while the scan stays in
+   * the cell, committed (as the visit's mean) the moment it leaves — reads
+   * during the visit still see the previous pass. Non-finite values are the
+   * caller's guard; out-of-range values clamp like the 8-bit texture does.
+   */
+  write(x, y, value) {
+    const cell = this.cellOf(x, y);
+    if (cell !== this.pendingCell) {
+      this.commit();
+      this.pendingCell = cell;
+    }
+    if (value > 1) value = 1; else if (value < -1) value = -1;
+    this.pendingSum += value;
+    this.pendingCount++;
+  }
+
+  /** Flush the visit in progress into its cell. */
+  commit() {
+    if (this.pendingCell >= 0 && this.pendingCount > 0) {
+      this.grid[this.pendingCell] = this.pendingSum / this.pendingCount;
+    }
+    this.pendingSum = 0;
+    this.pendingCount = 0;
+  }
+}
+
+/**
  * The synth: compiled formula in, safe stereo audio out.
  * `compiled` objects come from core/js.js compileFormula() on the main thread
  * or from new Function inside the worklet: { fn, mode }.
  */
 export class SynthCore {
   constructor(sampleRate, { FL, oversample = 4, target = 0.5 } = {}) {
-    this.FL = FL;
+    // the feedback grid is this core's state, so prev() is bound per core:
+    // the shared FL stays pure, and a formula that reads prev() reads what
+    // THIS core's scan wrote (ADR #43)
+    this.feedback = new ScanFeedback();
+    this.FL = { ...FL, prev: (px, py) => this.feedback.read(px, py) };
     this.sampleRate = sampleRate;
     this.os = oversample;
     this.osRate = sampleRate * oversample;
@@ -297,8 +397,9 @@ export class SynthCore {
 
     this.t = 0;        // shared phase clock, seconds
     this.frame = 0;    // output-sample index → env.i
+    const step = this.feedback.step; // dx / dy: one feedback cell (ADR #43)
     this.env = {
-      x: 0, y: 0, t: 0, r: 0, th: 0, mx: 0, my: 0, i: 0, dx: 0, dy: 0, mot: 0,
+      x: 0, y: 0, t: 0, r: 0, th: 0, mx: 0, my: 0, i: 0, dx: step, dy: step, mot: 0,
       params: {},
     };
     this.paramTargets = {};
@@ -335,12 +436,16 @@ export class SynthCore {
     this.fadeInInc = 1 / (0.02 * this.osRate);
   }
 
-  /** Swap formulas with a 20 ms crossfade. `compiled` = { fn, mode };
-   *  spatial = a field formula, whose x/y the scan path drives. */
+  /** Swap formulas with a 20 ms crossfade. `compiled` = { fn, mode, feedback };
+   *  spatial = a field formula, whose x/y the scan path drives; feedback = it
+   *  reads prev(), so its samples are written back into the grid. */
   setFormula(compiled, spatial = false) {
     this.prev = this.cur;
     this.cur = { ...compiled, spatial };
     this.fadePos = this.prev ? 0 : this.fadeLen;
+    // a new formula starts from black, exactly like the shader (ADR #25); the
+    // outgoing voice reads that black through its 20 ms fade, as it does there
+    this.feedback.reset();
   }
 
   setScan(path, freq) {
@@ -452,6 +557,13 @@ export class SynthCore {
         try {
           this.evalVoice(this.cur);
           l = this.vl; r = this.vr;
+          // feed back what THIS backend produced: the scalar, a vec3's
+          // luminance (already in vl), or the mid of a vec2 pair. Only the
+          // current voice writes; the outgoing one only reads.
+          if (this.cur.feedback) {
+            const fb = this.cur.mode === 'vec2' ? (l + r) * 0.5 : l;
+            if (Number.isFinite(fb)) this.feedback.write(this.sx, this.sy, fb);
+          }
           if (this.fadePos < this.fadeLen && this.prev) {
             this.evalVoice(this.prev);
             const k = this.fadePos / this.fadeLen;

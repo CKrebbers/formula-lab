@@ -198,10 +198,11 @@ function initPanel() {
   }
 
   /**
-   * Say which terms of this formula are inert in sound (ADR #38). prev() and
-   * dx/dy exist for the shader and are 0 at 48 kHz, so the same formula does
-   * different things in the two backends — the limit is acceptable, staying
-   * quiet about it is not.
+   * Say which terms of this formula are inert in sound (ADR #38). Today that
+   * is cam() only — the camera is a texture the worklet does not have — so
+   * the same formula does different things in the two backends there; the
+   * limit is acceptable, staying quiet about it is not. (prev()/dx/dy are
+   * heard since ADR #43: the synth core has a feedback grid.)
    */
   function showAudioNote() {
     const silent = avSound.silentTerms;

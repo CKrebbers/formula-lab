@@ -82,14 +82,25 @@ describe('isParametric', () => {
   });
 });
 
-describe('audio-silent terms (ADR #38)', () => {
+describe('audio-silent terms (ADR #38, narrowed by ADR #43)', () => {
   const silentOf = (src) => compileFormula(parse(src)).silent;
 
-  it('names the terms that are 0 in the audio backend', () => {
-    expect(silentOf('prev(x, y) * 0.97 + sin(t)')).toEqual(['prev()']);
-    expect(silentOf('prev(x + dx, y) - prev(x - dx, y)')).toEqual(['dx', 'prev()']);
-    expect(silentOf('sin(x + dx) + cos(y + dy)')).toEqual(['dx', 'dy']);
+  it('names the terms that are 0 in the audio backend: cam() only', () => {
     expect(silentOf('cam(x, y) * (0.5 + mot)')).toEqual(['cam()']); // mot is heard, cam is not
+    expect(silentOf('cam(x, y) + prev(x, y)')).toEqual(['cam()']);
+  });
+
+  it('prev(), dx and dy are heard since the synth core has a feedback grid (ADR #43)', () => {
+    expect(silentOf('prev(x, y) * 0.97 + sin(t)')).toEqual([]);
+    expect(silentOf('prev(x + dx, y) - prev(x - dx, y)')).toEqual([]);
+    expect(silentOf('sin(x + dx) + cos(y + dy)')).toEqual([]);
+  });
+
+  it('reports whether a formula feeds back, so the core knows to write', () => {
+    const feedbackOf = (src) => compileFormula(parse(src)).feedback;
+    expect(feedbackOf('prev(x, y) * 0.97 + sin(t)')).toBe(true);
+    expect(feedbackOf('sin(x + dx)')).toBe(false);
+    expect(feedbackOf('sin(440.0 * 6.283 * t)')).toBe(false);
   });
 
   it('says nothing about a formula that is fully audible', () => {
@@ -98,14 +109,18 @@ describe('audio-silent terms (ADR #38)', () => {
     expect(silentOf('band(i, 255.0) * 0.007')).toEqual([]);
   });
 
-  it('every starter and family reports its own silent terms', () => {
+  it('every starter reports its own silent terms — and Trails no longer has one', () => {
+    let trails = 0;
     for (const { id, source } of STARTERS) {
       const silent = silentOf(source);
-      // the Trails starter is the prev() one — it must declare it
-      if (source.includes('prev(')) expect(silent).toContain('prev()');
-      else expect(silent).not.toContain('prev()');
       expect(Array.isArray(silent), `${id}`).toBe(true);
+      expect(silent, `${id}`).not.toContain('prev()');
+      if (source.includes('prev(')) {
+        trails++;
+        expect(silent, `${id}`).toEqual([]);
+      }
     }
+    expect(trails).toBeGreaterThan(0); // the prev() starter still exists
   });
 });
 

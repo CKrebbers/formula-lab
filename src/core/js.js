@@ -8,7 +8,7 @@
 // rule from §5 holds.
 
 import { validate } from './ast.js';
-import { outputMode } from './glsl.js';
+import { outputMode, usesPrev } from './glsl.js';
 
 export class JsEmitError extends Error {}
 
@@ -67,20 +67,19 @@ function emitCall(node, isTopLevel) {
 
 /**
  * Terms that exist in the shader but evaluate to 0 in the audio backend
- * (ADR #38): there is no frame buffer at 48 kHz and no screen pixel to step
- * by. The same formula therefore does something different in the two
- * backends — an acceptable limit, but not a silent one, so the emitter
- * reports it and the UI and the saved measurement carry it.
+ * (ADR #38): today only cam() — the camera is a texture on the GPU and the
+ * worklet has none (ADR #41). prev(), dx and dy left this list with ADR #43:
+ * the synth core owns a scan-written feedback grid, prev() reads it and
+ * dx/dy are one cell of it. The same formula still does something different
+ * in the two backends wherever this list is non-empty — an acceptable limit,
+ * but not a silent one, so the emitter reports it and the UI and the saved
+ * measurement carry it.
  */
-const AUDIO_SILENT_VARS = ['dx', 'dy'];
-const AUDIO_SILENT_CALLS = ['prev', 'cam']; // no frame buffer, no camera texture at audio rate
+const AUDIO_SILENT_CALLS = ['cam'];
 
 /** @returns {string[]} sorted names of this formula's audio-silent terms. */
 export function audioSilentTerms(node, found = new Set()) {
   switch (node?.type) {
-    case 'var':
-      if (AUDIO_SILENT_VARS.includes(node.name)) found.add(node.name);
-      break;
     case 'neg':
       audioSilentTerms(node.arg, found);
       break;
@@ -98,7 +97,8 @@ export function audioSilentTerms(node, found = new Set()) {
 
 /**
  * Emit a JS function body for a validated AST.
- * Returns { body, mode, isParametric, silent }.
+ * Returns { body, mode, isParametric, silent, feedback } — feedback = the
+ * formula reads prev(), so a SynthCore must write its samples back (ADR #43).
  *
  * The compiled function's contract: fn(FL, env, out)
  *   env: { x, y, t, r, th, mx, my, i, dx, dy, params }
@@ -121,21 +121,22 @@ export function emitJS(ast) {
     body, mode,
     isParametric: isParametric(ast),
     silent: audioSilentTerms(ast),
+    feedback: usesPrev(ast),
   };
 }
 
 /** Compile to a callable: fn(FL, env, out). */
 export function compileFormula(ast) {
-  const { body, mode, isParametric: parametric, silent } = emitJS(ast);
+  const { body, mode, isParametric: parametric, silent, feedback } = emitJS(ast);
   // eslint-disable-next-line no-new-func
   const fn = new Function('FL', 'env', 'out', body);
-  return { fn, body, mode, isParametric: parametric, silent };
+  return { fn, body, mode, isParametric: parametric, silent, feedback };
 }
 
 /**
  * Spatial variables make a formula a FIELD; without them it is PARAMETRIC:
- * pure f(t) (plus i/mx/my, which exist at audio rate too). prev() needs the
- * frame buffer, so it forces field as well.
+ * pure f(t) (plus i/mx/my, which exist at audio rate too). prev() reads the
+ * feedback grid, whose cells the scan visits, so it forces field as well.
  */
 const SPATIAL_VARS = ['x', 'y', 'r', 'th', 'dx', 'dy'];
 

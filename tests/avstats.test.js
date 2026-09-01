@@ -147,11 +147,21 @@ describe('computeAudioStats', () => {
     const audible = statsFor('sin(440.0 * 6.283 * t)');
     expect(audible.silent).toEqual([]);
 
-    const trails = statsFor('prev(x, y) * 0.97 + 0.06 * sin(length(x, y) * 14.0 - t * 2.0)',
-      { path: 'lissajous', freq: 110 });
-    // stats.audio must not imply the whole formula was heard
-    expect(trails.silent).toEqual(['prev()']);
-    expect(trails.pre.rms).toBeGreaterThan(0); // the source term still sounds
+    // stats.audio must not imply the whole formula was heard: cam() is a
+    // texture the audio backend does not have (ADR #41)
+    const cam = statsFor('cam(x, y) * 0.5 + 0.3 * sin(t * 440.0 * 6.283)', { path: 'line', freq: 110 });
+    expect(cam.silent).toEqual(['cam()']);
+    expect(cam.pre.rms).toBeGreaterThan(0); // the source term still sounds
+  });
+
+  it('a prev() formula is heard whole: the feedback grid speaks (ADR #43)', () => {
+    const source = '0.06 * sin(length(x, y) * 14.0 - t * 2.0)';
+    const trails = statsFor(`prev(x, y) * 0.97 + ${source}`, { path: 'lissajous', freq: 110 });
+    const driver = statsFor(source, { path: 'lissajous', freq: 110 });
+    expect(trails.silent).toEqual([]);
+    // the feedback is not decoration: it changes level and character
+    expect(trails.pre.rms).toBeGreaterThan(driver.pre.rms * 3);
+    expect(trails.pre.crest).toBeGreaterThan(driver.pre.crest * 1.5);
   });
 
   it('is deterministic', () => {

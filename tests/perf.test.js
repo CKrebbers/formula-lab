@@ -27,12 +27,13 @@ import { compileFormula } from './src/core/js.js';
 import { FL } from './src/core/jsruntime.js';
 import { SynthCore } from './src/audio/dsp.js';
 
-// deliberately heavy: an iterated map + fbm + audio-rate sine per sample
-const HEAVY = 'julia(sin(t * 0.11), cos(t * 0.13), 0.355, 0.355, 24.0) '
+// deliberately heavy: an iterated map + fbm + audio-rate sine per sample,
+// plus the feedback grid read AND written every sample (ADR #43)
+const HEAVY = 'prev(x + dx, y) * 0.5 + julia(sin(t * 0.11), cos(t * 0.13), 0.355, 0.355, 24.0) '
   + '* sin(440.0 * 6.283 * t) + fbm(t * 0.5, 0.0, 4.0) * 0.3';
 const { ast, params } = extractParams(parse(HEAVY));
 const core = new SynthCore(48000, { FL });
-core.setFormula(compileFormula(ast));
+core.setFormula(compileFormula(ast), true); // a field: the scan drives x/y
 core.setParams(params);
 const l = new Float32Array(128), r = new Float32Array(128);
 for (let b = 0; b < 400; b++) core.process(l, r); // JIT warmup

@@ -8,7 +8,7 @@ import DSP_SRC from './dsp.js?raw';
 import GLUE_SRC from './worklet-glue.js?raw';
 import { emitJS, compileFormula } from '../core/js.js';
 import { FL } from '../core/jsruntime.js';
-import { scanXY } from './dsp.js';
+import { scanXY, FEEDBACK_CELLS } from './dsp.js';
 
 export class AVSound {
   constructor() {
@@ -99,6 +99,7 @@ export class AVSound {
     this.node.port.postMessage({
       type: 'formula', body, mode,
       spatial: !this.compiled.isParametric,
+      feedback: this.compiled.feedback, // reads prev(): the core writes back
     });
     return this.compiled;
   }
@@ -154,7 +155,9 @@ export class AVSound {
 
   /** Evaluate the current formula on the main thread (scope plot). For a
    *  field formula, x/y follow the same scanXY the worklet runs, derived
-   *  from the audio clock — the scope shows the waveform being heard. */
+   *  from the audio clock — the scope shows the waveform being heard. One
+   *  exception: the feedback grid lives on the audio thread, so here prev()
+   *  reads 0 and a prev() formula's scope shows its direct part only. */
   evalAt(t, params, mouse = [0, 0]) {
     if (!this.compiled) return null;
     let x = 0, y = 0, r = 0, th = 0;
@@ -170,7 +173,7 @@ export class AVSound {
     const env = {
       x, y, t, r, th,
       mx: mouse[0], my: mouse[1], mot: this.inputs?.mot ?? 0,
-      i: Math.floor(t * 48000), dx: 0, dy: 0, params,
+      i: Math.floor(t * 48000), dx: 2 / FEEDBACK_CELLS, dy: 2 / FEEDBACK_CELLS, params,
     };
     try {
       const v = this.compiled.fn(FL, env, [0, 0, 0]);

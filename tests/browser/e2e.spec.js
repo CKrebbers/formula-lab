@@ -62,14 +62,20 @@ test('a formula with audio-silent terms says so, per formula (ADR #38)', async (
   await page.waitForTimeout(400);
   await expect(page.locator('#audio-note')).toBeHidden();
 
-  // the Trails-style feedback formula: prev() is 0 at 48 kHz
+  // the camera is a texture the worklet does not have (ADR #41)
+  await page.fill('#formula', 'cam(x, y) * 0.5 + 0.3 * sin(t * 3.0)');
+  await page.dispatchEvent('#formula', 'input');
+  await page.waitForTimeout(400);
+  await expect(page.locator('#audio-note')).toBeVisible();
+  await expect(page.locator('#audio-note')).toContainText('cam()');
+  await expect(page.locator('#audio-note')).toContainText('0 in sound');
+
+  // the Trails-style feedback formula is heard whole since ADR #43: no note
   await page.fill('#formula',
     'prev(x, y) * 0.97 + 0.06 * sin(length(x, y) * 14.0 - t * 2.0)');
   await page.dispatchEvent('#formula', 'input');
   await page.waitForTimeout(400);
-  await expect(page.locator('#audio-note')).toBeVisible();
-  await expect(page.locator('#audio-note')).toContainText('prev()');
-  await expect(page.locator('#audio-note')).toContainText('0 in sound');
+  await expect(page.locator('#audio-note')).toBeHidden();
 
   // and it goes away again when the formula no longer needs the warning
   await page.fill('#formula', 'worley(x * 4.0, y * 4.0) * 2.0 - 1.0');
