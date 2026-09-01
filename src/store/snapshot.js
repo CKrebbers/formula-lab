@@ -1,7 +1,9 @@
 // Snapshot schema v1 (§4, frozen): create, validate, migrate.
 // No DOM dependency — testable in Node.
 
-export const SCHEMA_VERSION = 2; // v2 adds display style: palette, smooth, tone
+export const SCHEMA_VERSION = 3; // v2: display style · v3: AV layer — scan
+// settings + stats.audio {rms, crest, flatness}, so presets record how
+// interesting image and sound are INDEPENDENTLY (ADR 001 phase 3)
 
 export const COORD_NAMES = ['cartesian', 'polar', 'toroidal'];
 export const ORIGINS = ['typed', 'mutate', 'crossover', 'sample', 'llm', 'family'];
@@ -12,6 +14,7 @@ const EMPTY_STATS = {
   color_variance: 0.0,
   symmetry: 0.0,
   spectral_flatness: 0.0,
+  audio: null, // filled at save time: { rms, crest, flatness } — or null
 };
 
 /**
@@ -34,6 +37,7 @@ export function createSnapshot({
   palette = 0,
   smooth = false,
   tone = 0,
+  scan = null, // { path, freq } — how a field formula was being sonified
 }) {
   return {
     schema: SCHEMA_VERSION,
@@ -50,6 +54,7 @@ export function createSnapshot({
     palette,
     smooth,
     tone,
+    scan: scan ? { ...scan } : null,
     seed,
     time,
     stats: { ...EMPTY_STATS },
@@ -81,6 +86,12 @@ export function validateSnapshot(snap) {
   if (typeof snap.smooth !== 'boolean') return fail('smooth must be a boolean');
   if (![0, 1, 2].includes(snap.tone)) return fail('tone must be 0 (clamp), 1 (wrap) or 2 (fold)');
   if (typeof snap.stats !== 'object' || snap.stats === null) return fail('Missing stats');
+  if (snap.scan !== null && snap.scan !== undefined) {
+    if (typeof snap.scan !== 'object') return fail('scan must be null or an object');
+    if (typeof snap.scan.path !== 'string' || !Number.isFinite(snap.scan.freq)) {
+      return fail('scan needs a path string and a finite freq');
+    }
+  }
   return { ok: true };
 }
 
@@ -99,6 +110,15 @@ export function migrate(snap) {
   if (snap.schema === 1) {
     // v1 → v2: display style did not exist yet; defaults match the old look
     return migrate({ ...snap, schema: 2, palette: 0, smooth: false, tone: 0 });
+  }
+  if (snap.schema === 2) {
+    // v2 → v3: AV layer — no scan recorded, no audio stats measured yet
+    return migrate({
+      ...snap,
+      schema: 3,
+      scan: null,
+      stats: { ...snap.stats, audio: snap.stats?.audio ?? null },
+    });
   }
   throw new Error(`No migration path from schema ${snap.schema}`);
 }

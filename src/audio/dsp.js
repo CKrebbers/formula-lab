@@ -71,6 +71,32 @@ export class Decimator {
 }
 
 /**
+ * Scan paths (ADR 001 phase 3): a FIELD formula becomes sound by walking a
+ * path through the same field the shader draws, at an audible traversal rate.
+ * phase ∈ [0,1) is one traversal; rowPhase moves the line path between rows.
+ * Pure and exported: the worklet AND the main-thread scope use this function.
+ */
+export const SCAN_PATHS = ['lissajous', 'spiral', 'line'];
+
+export function scanXY(path, phase, rowPhase, out) {
+  if (path === 'line') {
+    // TV raster: x sweeps at the scan rate, y steps one of 64 rows per sweep
+    out[0] = 2 * phase - 1;
+    out[1] = 2 * rowPhase - 1;
+  } else if (path === 'spiral') {
+    // center → edge, 8 windings per traversal (restarts each cycle)
+    const a = phase * Math.PI * 16;
+    out[0] = phase * Math.cos(a);
+    out[1] = phase * Math.sin(a);
+  } else {
+    // 3:2 Lissajous — smooth and periodic, no wrap discontinuity
+    out[0] = Math.sin(2 * Math.PI * 3 * phase);
+    out[1] = Math.sin(2 * Math.PI * 2 * phase + Math.PI / 4);
+  }
+  return out;
+}
+
+/**
  * The synth: compiled formula in, safe stereo audio out.
  * `compiled` objects come from core/js.js compileFormula() on the main thread
  * or from new Function inside the worklet: { fn, mode }.
@@ -84,8 +110,14 @@ export class SynthCore {
     this.dt = 1 / this.osRate;
     this.target = target;
 
-    this.cur = null;   // { fn, mode }
+    this.cur = null;   // { fn, mode, spatial }
     this.prev = null;
+    this.scan = { path: 'lissajous', freq: 110 };
+    this.scanPhase = 0;
+    this.rowPhase = 0;
+    this.scanOut = [0, 0];
+    this.sx = 0;
+    this.sy = 0;
     this.fadeLen = Math.max(1, Math.round(0.02 * this.osRate)); // 20 ms
     this.fadePos = this.fadeLen; // >= fadeLen means: no fade running
 
@@ -119,11 +151,17 @@ export class SynthCore {
     this.fadeInInc = 1 / (0.2 * this.osRate);
   }
 
-  /** Swap formulas with a 20 ms crossfade. `compiled` = { fn, mode }. */
-  setFormula(compiled) {
+  /** Swap formulas with a 20 ms crossfade. `compiled` = { fn, mode };
+   *  spatial = a field formula, whose x/y the scan path drives. */
+  setFormula(compiled, spatial = false) {
     this.prev = this.cur;
-    this.cur = compiled;
+    this.cur = { ...compiled, spatial };
     this.fadePos = this.prev ? 0 : this.fadeLen;
+  }
+
+  setScan(path, freq) {
+    if (SCAN_PATHS.includes(path)) this.scan.path = path;
+    if (Number.isFinite(freq)) this.scan.freq = Math.min(4000, Math.max(1, freq));
   }
 
   setParams(params) {
@@ -147,7 +185,16 @@ export class SynthCore {
    *  Writes fields instead of returning an array: this runs 4×48000 times a
    *  second and must not allocate. */
   evalVoice(voice) {
-    const v = voice.fn(this.FL, this.env, this.scratch);
+    const env = this.env;
+    if (voice.spatial) {
+      env.x = this.sx;
+      env.y = this.sy;
+      env.r = Math.sqrt(this.sx * this.sx + this.sy * this.sy);
+      env.th = Math.atan2(this.sy, this.sx);
+    } else {
+      env.x = 0; env.y = 0; env.r = 0; env.th = 0;
+    }
+    const v = voice.fn(this.FL, env, this.scratch);
     if (voice.mode === 'scalar') {
       this.vl = v; this.vr = v;
     } else if (voice.mode === 'vec2') {
@@ -179,6 +226,15 @@ export class SynthCore {
       for (let s = 0; s < this.os; s++) {
         env.t = this.t;
         env.i = this.frame;
+        // scan clock: x/y walk the field at an audible rate; t stays slow
+        this.scanPhase += this.scan.freq * this.dt;
+        if (this.scanPhase >= 1) {
+          this.scanPhase -= 1;
+          this.rowPhase = (this.rowPhase + 1 / 64) % 1;
+        }
+        scanXY(this.scan.path, this.scanPhase, this.rowPhase, this.scanOut);
+        this.sx = this.scanOut[0];
+        this.sy = this.scanOut[1];
         let l, r;
         try {
           this.evalVoice(this.cur);

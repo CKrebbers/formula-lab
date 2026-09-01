@@ -103,7 +103,7 @@
     #glitch.active { border-color: #ff5566; color: #ff5566; }
     #audio-tab.active, #audio-mic.active { border-color: #8be9b6; color: #8be9b6; }
     #snd.active { border-color: #8be9b6; color: #8be9b6; }
-    #vol { width: 70px; accent-color: #8be9b6; align-self: center; }
+    #vol, #scan-freq { width: 70px; accent-color: #8be9b6; align-self: center; }
     #scope {
       position: fixed; right: 8px; bottom: 8px; width: 220px; height: 220px;
       border: 1px solid #565a75; background: rgba(15, 15, 27, 0.85);
@@ -220,8 +220,14 @@
       <button id="mods-toggle" class="slider-btn" title="modulator rack: algorithmic parameter manipulation">mods</button>
       <button id="audio-tab" class="slider-btn" title="system audio: share the Chrome TAB that plays music and enable 'share tab audio' (macOS cannot share whole-screen audio)">♪ tab</button>
       <button id="audio-mic" class="slider-btn" title="microphone, or a loopback device like BlackHole for full system audio">♪ mic</button>
-      <button id="snd" class="slider-btn" title="sound: hear this formula — f(t) formulas play now, e.g. vec2(sin(440.0*6.283*t), sin(662.0*6.283*t))">▶ snd</button>
+      <button id="snd" class="slider-btn" title="sound: hear this formula — f(t) formulas play as L/R (try vec2(sin(440.0*6.283*t), sin(662.0*6.283*t))), field formulas are scanned along a path">▶ snd</button>
       <input id="vol" type="range" min="0" max="1" step="0.01" value="0.5" title="sound volume" />
+      <select id="scan" class="slider-btn" title="scan path: the curve that walks a field formula at audio rate">
+        <option value="lissajous">liss</option>
+        <option value="spiral">spiral</option>
+        <option value="line">line</option>
+      </select>
+      <input id="scan-freq" type="range" min="0" max="1" step="0.005" value="0.333" title="scan rate: traversals per second, 27.5 Hz – 1.76 kHz (the pitch of a field)" />
     </div>
     <div id="mods" hidden></div>
     <div id="packs" hidden></div>

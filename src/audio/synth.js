@@ -8,6 +8,7 @@ import DSP_SRC from './dsp.js?raw';
 import GLUE_SRC from './worklet-glue.js?raw';
 import { emitJS, compileFormula } from '../core/js.js';
 import { FL } from '../core/jsruntime.js';
+import { scanXY } from './dsp.js';
 
 export class AVSound {
   constructor() {
@@ -20,6 +21,7 @@ export class AVSound {
     this.pendingAst = null;    // formula applied before the ctx existed
     this.startCtxTime = 0;     // ctx.currentTime ↔ formula-t mapping
     this.startFormulaTime = 0;
+    this.scan = { path: 'lissajous', freq: 110 }; // field-mode scan path
     this.onError = null;       // (message) => void
   }
 
@@ -66,8 +68,17 @@ export class AVSound {
       return this.compiled;
     }
     const { body, mode } = emitJS(paramAst);
-    this.node.port.postMessage({ type: 'formula', body, mode });
+    this.node.port.postMessage({
+      type: 'formula', body, mode,
+      spatial: !this.compiled.isParametric,
+    });
     return this.compiled;
+  }
+
+  /** Field-mode scan path: which curve walks the field, at how many Hz. */
+  setScan(path = this.scan.path, freq = this.scan.freq) {
+    this.scan = { path, freq };
+    if (this.ctx) this.node.port.postMessage({ type: 'scan', path, freq });
   }
 
   /** Stream the live param values (already glide/LFO-smoothed upstream). */
@@ -79,6 +90,7 @@ export class AVSound {
   async start(formulaTime) {
     await this.ensure();
     await this.ctx.resume();
+    this.node.port.postMessage({ type: 'scan', ...this.scan });
     this.startCtxTime = this.ctx.currentTime;
     this.startFormulaTime = formulaTime;
     this.node.port.postMessage({ type: 'time', t: formulaTime });
@@ -105,11 +117,23 @@ export class AVSound {
     return this.startFormulaTime + (this.ctx.currentTime - this.startCtxTime);
   }
 
-  /** Evaluate the current formula on the main thread (scope plot). */
+  /** Evaluate the current formula on the main thread (scope plot). For a
+   *  field formula, x/y follow the same scanXY the worklet runs, derived
+   *  from the audio clock — the scope shows the waveform being heard. */
   evalAt(t, params, mouse = [0, 0]) {
     if (!this.compiled) return null;
+    let x = 0, y = 0, r = 0, th = 0;
+    if (!this.compiled.isParametric) {
+      const traversal = t * this.scan.freq;
+      const phase = traversal - Math.floor(traversal);
+      const rowPhase = (Math.floor(traversal) % 64) / 64;
+      const p = scanXY(this.scan.path, phase, rowPhase, [0, 0]);
+      x = p[0]; y = p[1];
+      r = Math.hypot(x, y);
+      th = Math.atan2(y, x);
+    }
     const env = {
-      x: 0, y: 0, t, r: 0, th: 0,
+      x, y, t, r, th,
       mx: mouse[0], my: mouse[1],
       i: Math.floor(t * 48000), dx: 0, dy: 0, params,
     };

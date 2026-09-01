@@ -41,10 +41,14 @@ test('typing a formula: sound runs, scope draws, canvas changes, no errors', asy
   expect(before.equals(after), 'canvas must change with the formula').toBe(false);
   await expect(page.locator('#status')).toContainText('[scalar]'); // was [vec2]
 
-  // field formula parked the sound with a hint, button intent stays on
+  // a field formula keeps playing through the scan path: sound stays on and
+  // the scope switches to the scanned waveform
   await expect(page.locator('#snd')).toHaveClass(/active/);
-  await expect(page.locator('#status')).toContainText('sound plays f(t)');
-  await expect(page.locator('#scope')).toBeHidden();
+  await expect(page.locator('#scope')).toBeVisible();
+  const wave1 = await page.locator('#scope').screenshot();
+  await page.waitForTimeout(400);
+  const wave2 = await page.locator('#scope').screenshot();
+  expect(wave1.equals(wave2), 'field-scan scope must animate').toBe(false);
 
   expect(errors, errors.join('\n')).toHaveLength(0);
 });

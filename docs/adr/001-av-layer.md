@@ -1,6 +1,6 @@
 # ADR 001 — Audiovisual layer: one formula, image AND sound
 
-2026-09-01 · status: accepted, phase 1 in progress
+2026-09-01 · status: accepted — phases 1, 2 and 3 shipped (see CHANGELOG)
 
 ## Principle
 

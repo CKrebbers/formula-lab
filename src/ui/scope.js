@@ -32,7 +32,8 @@ export class Scope {
     if (t1 === null || !sound.compiled) return;
     const g = this.g;
     const s = this.size;
-    const isXY = sound.compiled.mode !== 'scalar';
+    // XY trace for parametric stereo curves; field scans show their waveform
+    const isXY = sound.compiled.mode !== 'scalar' && sound.compiled.isParametric;
 
     g.fillStyle = 'rgba(15, 15, 27, 0.28)'; // persistence fade
     g.fillRect(0, 0, s, s);

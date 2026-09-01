@@ -2,6 +2,43 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-09-01 — The AV layer: every formula is image AND sound (ADR 001, #31/#32)
+
+**status:** one AST, two backends — no audio analysis, no FFT coupling; the
+same IR that becomes the shader becomes the waveform.
+
+- **emitJS** (`core/js.js`) is the audio twin of the GLSL transpile;
+  `core/jsruntime.js` mirrors every `fl_*` helper, `core/interp.js` is the
+  reference evaluator the parity harness stands on. The hash is emulated in
+  float32 op for op (`Math.fround`) — measured first: in float64 worley's
+  image correlation with the GPU was 0.20; with the emulation, max pixel
+  diff < 1 byte (ADR #32). Image and sound see the same noise cells.
+- **AudioWorklet** (`audio/dsp.js` + one Blob module): 4× oversampling through
+  NaN guard → dual DC blockers → peak normalizer → tanh → 192-tap decimation,
+  20 ms formula crossfade, 200 ms soft start. Formulas travel as postMessage
+  strings; the module loads once, no clicks.
+- **Parametric mode**: pure f(t) formulas play as L/R (`vec2` = stereo), the
+  scope overlay draws the XY curve from the *same compiled function* on the
+  audio clock. **Field mode**: x/y walk a scan path (lissajous / spiral /
+  line, 27.5 Hz–1.76 kHz) through the same field the shader draws; the scope
+  shows the scanned waveform. `▶ snd`, volume, path + rate in the panel.
+- **Snapshot schema v3**: `scan` settings + `stats.audio` {rms, crest,
+  flatness} recorded at save — presets now say how interesting image and
+  sound are independently. migrate() v1→v2→v3.
+- **Tests**: 301 unit (parity corpus at 1e-6, 2 s safety renders — finite,
+  |DC| < 0.01, peak ≤ 1 — for hostile formulas incl. 1/sin(t) and t*8000,
+  ≥20 dB alias drop, golden hashes, CPU-time block budget) + 25 browser
+  (Playwright: GLSL↔reference parity on real renders, OfflineAudioContext
+  through the real worklet, e2e type→hear→see). CI runs both before deploy.
+- Verified live: Lissajous scope for `vec2(sin(440·2π·t), sin(662·2π·t))`,
+  worley field scan waveform, save writes scan + audio stats (schema 3).
+- `prev()`/`dx`/`dy` are 0 in the audio backend (no frame buffer at 48 kHz) —
+  documented in ADR 001, not hidden.
+
+**besluit:** done: AV phases 1–3. Parked: audio for prev() formulas, per-scan
+row-count control, using stats.audio in the zero-player's novelty. Next per
+TODO: Clay plays a real evening — now with sound on.
+
 ## 2026-09-01 — The panel becomes an instrument: cue/take, dice, starters (B1)
 
 **status:** the play face, not more language.

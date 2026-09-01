@@ -35,6 +35,7 @@ import { print } from './core/print.js';
 import { lhsParamSets, randomExpr } from './search/sample.js';
 import { AudioEngine } from './audio/engine.js';
 import { AVSound } from './audio/synth.js';
+import { computeAudioStats } from './audio/stats.js';
 import { Scope } from './ui/scope.js';
 import { FamilyPacks } from './families/packs.js';
 import { buildFamilyPrompt } from './families/prompt.js';
@@ -169,12 +170,11 @@ function initPanel() {
   }
 
   /**
-   * Sound plays when the button is on AND the formula is parametric (pure
-   * f(t)); field formulas get a scan path in phase 3 of the AV layer (ADR 001).
+   * Sound plays whenever the button is on: parametric f(t) formulas as L/R
+   * directly, field formulas through the scan path (ADR 001 phase 3).
    */
   function syncAudioRun() {
-    const parametric = !!avSound.compiled?.isParametric;
-    const want = sndOn && parametric;
+    const want = sndOn && !!avSound.compiled;
     el('snd').classList.toggle('active', sndOn);
     scope.show(want);
     if (want && !avSound.playing) {
@@ -185,9 +185,6 @@ function initPanel() {
       });
     } else if (!want && avSound.playing) {
       avSound.stop();
-    }
-    if (sndOn && !parametric) {
-      updateStatus(' · ▶ waits: sound plays f(t) formulas — try vec2(sin(440.0*6.283*t), sin(662.0*6.283*t))');
     }
   }
 
@@ -261,11 +258,20 @@ function initPanel() {
       palette: state.palette,
       smooth: state.smooth,
       tone: state.tone,
+      scan: avSound.compiled && !avSound.compiled.isParametric ? { ...avSound.scan } : null,
     });
     snapshot.stats = averageStats(
       computeStats(s0.pixels, s0.width, s0.height),
       computeStats(s1.pixels, s1.width, s1.height)
     );
+    // the sound twin of the §7 stats: how interesting is this preset to HEAR,
+    // independent of how it looks (ADR 001 phase 3)
+    try {
+      snapshot.stats.audio = computeAudioStats(
+        currentParamAst, sliders.targetParams(), snapshot.scan);
+    } catch {
+      snapshot.stats.audio = null;
+    }
     archive.save(snapshot);
     currentParentIds = [snapshot.id];
     refreshArchive();
@@ -580,6 +586,12 @@ function initPanel() {
     if (!sndOn) updateStatus();
   });
   el('vol').addEventListener('input', (e) => avSound.setVolume(parseFloat(e.target.value)));
+  // scan rate slider is log: 27.5 Hz .. 1760 Hz over six octaves
+  const scanFreq = () => 27.5 * Math.pow(2, parseFloat(el('scan-freq').value) * 6);
+  const applyScan = () => avSound.setScan(el('scan').value, scanFreq());
+  el('scan').addEventListener('change', applyScan);
+  el('scan-freq').addEventListener('input', applyScan);
+  applyScan(); // controls and synth agree from the start
   el('cap').addEventListener('click', () => {
     const n = sliders.captureAll();
     updateStatus(n ? ` · ⏺ captured ${n} gesture${n > 1 ? 's' : ''} (mode ↺)` : ' · ⏺ no recent movement to capture');

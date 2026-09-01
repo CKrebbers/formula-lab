@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { parse } from '../src/core/parser.js';
 import { extractParams } from '../src/core/constants.js';
-import { compileFormula } from '../src/core/js.js';
+import { compileFormula, isParametric } from '../src/core/js.js';
 import { FL } from '../src/core/jsruntime.js';
 import { SynthCore } from '../src/audio/dsp.js';
 import { STARTERS } from '../src/families/starters.js';
@@ -30,7 +30,9 @@ const PARAMETRIC_CORPUS = [
 function hashOf(source) {
   const { ast, params } = extractParams(parse(source));
   const core = new SynthCore(SR, { FL });
-  core.setFormula(compileFormula(ast));
+  // field formulas play through the default scan path, exactly like the app
+  core.setFormula(compileFormula(ast), !isParametric(ast));
+  core.setScan('lissajous', 110);
   core.setParams(params);
   const l = new Float32Array(128);
   const r = new Float32Array(128);
