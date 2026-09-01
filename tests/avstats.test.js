@@ -102,22 +102,30 @@ describe('computeAudioStats', () => {
 
     expect(loud.pre.rms / quiet.pre.rms).toBeGreaterThan(9e5);
     expect(loud.pre.rms / quiet.pre.rms).toBeLessThan(1.1e6);
-    // the normalizer pins both to the same neighbourhood
-    for (const s of [quiet, loud]) {
-      expect(s.post.rms).toBeGreaterThan(0.2);
-      expect(s.post.rms).toBeLessThan(0.6);
-    }
+    // measured: 0.3308 vs 0.3329 — a millionfold level change, gone
+    const ratio = loud.post.rms / quiet.post.rms;
+    expect(ratio).toBeGreaterThan(0.95);
+    expect(ratio).toBeLessThan(1.05);
   });
 
-  // The sharpest version of the same finding: post grades the limiter.
-  it('pre.crest is level-invariant, post.crest is not', () => {
+  it('pre.crest measures the waveform, at any level', () => {
     const quiet = statsFor('sin(440.0 * 6.283 * t) * 0.001');
     const loud = statsFor('sin(440.0 * 6.283 * t) * 1000.0');
-
     // same waveform, so the same crest factor — whatever its amplitude
     expect(loud.pre.crest).toBeCloseTo(quiet.pre.crest, 4);
-    // measured: 1.39 quiet vs 2.05 loud — the limiter, not the formula
-    expect(Math.abs(loud.post.crest - quiet.post.crest)).toBeGreaterThan(0.3);
+    expect(loud.pre.crest).toBeCloseTo(Math.SQRT2, 2);
+  });
+
+  // Corrected finding (ADR #35): in STEADY STATE the peak tracker keeps the
+  // signal off the limiter, so tanh only shaves a few percent off crest —
+  // measured 3.04 → 2.95. The earlier "post.crest swings 1.39 → 2.05" was a
+  // startup transient, and ADR #37's warmup removed it. Level, not crest, is
+  // what post destroys.
+  it('the chain compresses crest slightly, and never inflates it', () => {
+    const pulse = statsFor('pow(abs(sin(200.0 * 3.14159 * t)), 32.0)');
+    expect(pulse.post.crest).toBeLessThan(pulse.pre.crest);
+    expect(pulse.pre.crest / pulse.post.crest).toBeGreaterThan(1.01);
+    expect(pulse.pre.crest / pulse.post.crest).toBeLessThan(1.5);
   });
 
   it('crest separates spiky from smooth', () => {

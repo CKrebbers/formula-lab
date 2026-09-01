@@ -18,7 +18,8 @@ import { fft } from '../search/fft.js';
 
 const SR = 48000;
 const N = 32768;        // FFT size; analysis window after a 0.25 s settle
-const SETTLE_S = 0.25;
+// longer than the chain's own warmup (one mean window, ADR #37) plus its fade
+const SETTLE_S = 0.5;
 
 /**
  * @param {object} paramAst — AST with param nodes (extractParams output)

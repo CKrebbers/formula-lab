@@ -9,10 +9,17 @@
 // (audio/synth.js concatenates it into a Blob) AND imported normally by the
 // Node test suite — same bytes, same math, both places.
 
-/** One-pole DC blocker: y[n] = x[n] - x[n-1] + R·y[n-1], cutoff ~20 Hz. */
+/**
+ * One-pole DC blocker: y[n] = x[n] - x[n-1] + R·y[n-1].
+ * 6 Hz by default (ADR #37): a first-order highpass costs f/√(f²+fc²), so
+ * 6 Hz takes 0.17 dB at 30 Hz where two cascaded 20 Hz blockers took 3.2 dB —
+ * and 20–40 Hz is exactly where slow visual motion has its audible twin.
+ */
+export const DC_CUTOFF_HZ = 6;
+
 export class DCBlocker {
-  constructor(sampleRate) {
-    this.R = 1 - (2 * Math.PI * 20) / sampleRate;
+  constructor(sampleRate, cutoffHz = DC_CUTOFF_HZ) {
+    this.R = 1 - (2 * Math.PI * cutoffHz) / sampleRate;
     this.x1 = 0;
     this.y1 = 0;
   }
@@ -21,6 +28,56 @@ export class DCBlocker {
     this.x1 = x;
     this.y1 = y;
     return y;
+  }
+}
+
+/**
+ * Subtract a boxcar running mean (ADR #37). This is the part that handles the
+ * NON-PERIODIC formulas — a ramp (`t * 8000`, and bytebeat's integer counters)
+ * walks away from zero forever, and one highpass answers a ramp with a
+ * constant, which is why the chain used to need two.
+ *
+ * Its magnitude response is |1 − sinc(fT)|: ripple bounded by 1/(π·f·T), so
+ * with T = 250 ms it is within ±0.54 dB at 20 Hz and ±0.36 dB at 30 Hz, and
+ * flat above. It leaves a ramp as a CONSTANT (slope·T/2), which the 6 Hz
+ * blocker after it removes — so the pair costs a fraction of a dB where the
+ * cascade cost several.
+ *
+ * Applied unconditionally rather than gated on a "is this periodic?" guess:
+ * the cost in the audible band is measured and negligible, and a heuristic
+ * that sometimes changes the filter would be far less predictable.
+ */
+export const MEAN_WINDOW_S = 0.25;
+
+export class RunningMeanRemover {
+  constructor(sampleRate, seconds = MEAN_WINDOW_S) {
+    this.n = Math.max(1, Math.round(sampleRate * seconds));
+    this.buf = new Float64Array(this.n);
+    this.pos = 0;
+    this.count = 0;
+    this.sum = 0;
+    this.since = 0;
+  }
+  step(x) {
+    const old = this.buf[this.pos];
+    this.buf[this.pos] = x;
+    this.pos = this.pos + 1 === this.n ? 0 : this.pos + 1;
+    if (this.count < this.n) {
+      this.count++;
+      this.sum += x;
+    } else {
+      this.sum += x - old;
+    }
+    // a float64 running sum drifts; recompute exactly once per window. The
+    // burst is ~50 µs against a 2.7 ms deadline, and any residue the drift
+    // leaves is a constant, which the blocker downstream removes anyway.
+    if (++this.since >= this.n) {
+      this.since = 0;
+      let s = 0;
+      for (let k = 0; k < this.count; k++) s += this.buf[k];
+      this.sum = s;
+    }
+    return x - this.sum / this.count;
   }
 }
 
@@ -247,12 +304,14 @@ export class SynthCore {
     this.paramTargets = {};
     this.paramSmooth = 1 - Math.exp(-1 / (0.01 * sampleRate)); // ~10 ms
 
-    // two blockers in series: a ramp (t * k, common in bytebeat) leaves a
-    // CONSTANT after one differentiating blocker; the second removes it
+    // running-mean subtraction handles the non-periodic formulas (a ramp
+    // walks away forever), the 6 Hz blocker removes what it leaves behind —
+    // together far flatter at 20–40 Hz than the two cascaded blockers this
+    // replaced (ADR #37)
+    this.meanL = new RunningMeanRemover(this.osRate);
+    this.meanR = new RunningMeanRemover(this.osRate);
     this.dcL = new DCBlocker(this.osRate);
     this.dcR = new DCBlocker(this.osRate);
-    this.dcL2 = new DCBlocker(this.osRate);
-    this.dcR2 = new DCBlocker(this.osRate);
     this.firL = new Decimator(oversample);
     this.firR = new Decimator(oversample);
     // optional analysis tap, pre-normalizer / pre-limiter (ADR #35). Off by
@@ -265,10 +324,15 @@ export class SynthCore {
     this.scratch = [0, 0, 0];
     this.vl = 0;
     this.vr = 0;
-    // 200 ms soft start: the DC blockers answer the first samples of an
-    // arbitrary formula with a saturated step response — fade over it
+    // Silent until one full mean window has been observed, then a 20 ms fade
+    // (ADR #37). While the window fills, the running mean of a ramp lags by
+    // half the samples seen, so the residue is still a ramp and the blocker
+    // cannot remove it: measured, that pinned `t * 8000` at the limiter for
+    // 250 ms (2 s mean DC 0.085). We cannot know a formula's DC before
+    // watching a window of it, so we do not pretend to — we stay quiet.
+    this.warmup = this.meanL.n;
     this.fadeIn = 0;
-    this.fadeInInc = 1 / (0.2 * this.osRate);
+    this.fadeInInc = 1 / (0.02 * this.osRate);
   }
 
   /** Swap formulas with a 20 ms crossfade. `compiled` = { fn, mode };
@@ -396,9 +460,10 @@ export class SynthCore {
         // 1. guard — one NaN would otherwise poison every filter after it
         if (!Number.isFinite(l)) l = 0;
         if (!Number.isFinite(r)) r = 0;
-        // 2. DC blockers — arbitrary formulas are not centered on zero
-        l = this.dcL2.step(this.dcL.step(l));
-        r = this.dcR2.step(this.dcR.step(r));
+        // 2. centre the signal: subtract the running mean (catches ramps and
+        //    other non-periodic drift), then block the constant it leaves
+        l = this.dcL.step(this.meanL.step(l));
+        r = this.dcR.step(this.meanR.step(r));
         if (tap) {
           tap.firL.push(l);
           tap.firR.push(r);
@@ -413,7 +478,11 @@ export class SynthCore {
         // 4. tanh limiter as the safety net
         l = Math.tanh(l);
         r = Math.tanh(r);
-        if (this.fadeIn < 1) {
+        if (this.warmup > 0) {
+          this.warmup--;
+          l = 0;
+          r = 0;
+        } else if (this.fadeIn < 1) {
           l *= this.fadeIn;
           r *= this.fadeIn;
           this.fadeIn = Math.min(1, this.fadeIn + this.fadeInInc);

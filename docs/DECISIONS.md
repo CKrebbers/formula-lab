@@ -230,12 +230,18 @@
     the normalizer and tanh, through its own decimation filter so both sides
     are at the output rate and directly comparable. Opt-in: the worklet
     allocates nothing for a measurement it never reads (asserted by a test).
-    Measured on the same formula at ×0.001 and ×1000:
-    - `pre.rms` 0.000706 vs 706.2 — the formula's own level, six orders apart.
-    - `post.rms` 0.333 vs 0.488 — the normalizer pins everything to the target.
-    - `pre.crest` 1.41394 for both (√2, a sine, level-invariant and correct).
-    - `post.crest` 1.39 vs 2.05 — the SAME waveform grades differently purely
-      by amplitude. That is the limiter talking, and it is why `pre` exists.
+    Measured on the same formula at ×0.001 and ×1000 (after ADR #37):
+    - `pre.rms` 0.000707 vs 707.014 — the formula's own level, six orders apart.
+    - `post.rms` 0.3308 vs 0.3329 — a millionfold level change, erased to 0.6 %.
+    - `pre.crest` 1.41445 for both (√2, a sine, level-invariant and correct).
+    - **Corrected:** the first measurement of this showed `post.crest` swinging
+      1.39 → 2.05 and was read as the limiter flattening crest. It was a
+      STARTUP TRANSIENT, and ADR #37's warmup removed it. In steady state the
+      peak tracker keeps the signal off the limiter and tanh only shaves a few
+      percent (a pulse train: 3.04 → 2.95). So the case for `pre` rests on
+      level, which `post` destroys completely — not on crest, which mostly
+      survives. Recorded rather than quietly re-tuned: the test now asserts
+      what is true (compression < 1.5×, never inflation).
     Flatness is computed on the rms-normalized signal so it never depends on
     level either. Done now, before a preset library exists that would need
     migrating: v3 records keep their single measurement as `post` with
@@ -256,6 +262,30 @@
     the fixture is genuinely old (no `scan` key at all in v2), that every v2
     field survives untouched, that no audio measurement is invented, and that
     an Archive holding all three loads them migrated and valid.
+37. **DC chain: one 6 Hz blocker + a running-mean subtraction, replacing two
+    cascaded 20 Hz blockers.** The cascade was 12 dB/oct and ate the 20–40 Hz
+    band — exactly where slow visual motion has its audible twin. Measured
+    end-to-end (old → new): 20 Hz −6.02 → −0.37 dB, 25 Hz −4.29 → −0.46 dB,
+    30 Hz −3.19 → −0.16 dB, 40 Hz −1.93 → −0.10 dB.
+    The second blocker existed because one highpass answers a RAMP (`t*8000`,
+    bytebeat counters) with a constant. A boxcar running-mean subtraction does
+    that job without the low-end cost: it leaves a ramp as a constant
+    (slope·T/2) for the 6 Hz blocker to remove, and its own ripple is bounded
+    by 1/(π·f·T), so at T = 250 ms it is within ±0.54 dB at 20 Hz and flat
+    above. Applied unconditionally rather than gated on a "is this periodic?"
+    heuristic — the measured cost is negligible and a filter that sometimes
+    changes shape is far less predictable. The test asserts the whole
+    20 Hz–1 kHz band, not just the 30 Hz acceptance point, so it cannot be
+    satisfied by landing on a sinc null; a negative control asserts the old
+    cascade would fail it.
+    **Startup, found by the safety test, not by reasoning:** while the mean
+    window fills, the mean of a ramp lags by half the samples seen, so the
+    residue is still a ramp and the blocker cannot remove it — `t*8000` was
+    pinned at the limiter for 250 ms (2 s mean DC 0.085, against a 0.01
+    budget). A fade cannot fix that; the chain simply does not know a
+    formula's DC before it has watched a window of it. So the synth is SILENT
+    for one mean window (250 ms), then fades in over 20 ms. A quarter second
+    before the first sound, in exchange for never opening with a thump.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate
