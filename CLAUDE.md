@@ -39,6 +39,17 @@ cue/take program–preview model, a dice, and a starters strip. Read
 docs/CHANGELOG.md top entries before assuming anything about the panel's
 broadcast behaviour: formulas now reach the displays only on TAKE.
 
+AND SINCE THEN: **every formula is image AND sound, out of one IR.** The AST
+splits into `emitGLSL` (shader) and `emitJS` (AudioWorklet): parametric f(t)
+formulas play as L/R with an XY scope, field formulas sound through a scan path.
+`▶ snd` + volume + scan path/rate live in the panel. Snapshot schema is now v4
+(`scan` + `stats.audio {pre, post, silent}`). Plan: docs/adr/001-av-layer.md;
+decisions #31–#39. **Before touching the audio path, read docs/HANDOFF.md** —
+it holds the traps (44.1 kHz not 48, the deliberate 250 ms silence at start,
+sound follows the CUE, prev()/dx/dy are 0 in audio).
+Counts as of 2026-09-01: 345 unit tests (26 files) + 28 browser tests
+(Playwright, `npm run test:browser`), single-file build ~153 kB.
+
 Built in one marathon session (24 commits, ~5,500 lines, 201 vitest tests green,
 single-file build ~94 kB). v1, v2 and v3's zero-player are DONE, plus a large
 amount of instrument/live work that was originally scheduled for v4.
@@ -95,6 +106,9 @@ src/
   display.js         # ?view=display: bare renderer, crossfading layers
   core/
     ast.js parser.js print.js glsl.js constants.js automate.js glitch.js modulators.js
+    js.js          # AST → JS (the audio twin of glsl.js) + audioSilentTerms()
+    jsruntime.js   # FL: JS mirror of the fl_* GLSL helpers (float32-emulated hash)
+    interp.js      # reference AST evaluator — the leg the parity tests stand on
   render/
     gl.js tile.js thumbs.js
   search/
@@ -104,14 +118,22 @@ src/
   sync/
     local.js         # BroadcastChannel; transport-agnostic {type, payload}
   audio/
-    engine.js analysis.js
+    engine.js analysis.js        # audio REACTIVITY (listening: tab/mic → bands)
+    dsp.js                       # SynthCore, output chain, scan paths, DropoutMeter
+    worklet-glue.js synth.js     # the worklet shell + its main-thread controller
+    stats.js                     # stats.audio {pre, post, silent}, offline
   ui/
     editor.js sliders.js sheet.js archive.js lineage.js elites.js mods.js packs.js families.js
+    scope.js         # XY / waveform overlay, drawn from the compiled audio fn
   families/
     index.js packs.js prompt.js + one file per family
-tests/               # 16 vitest files, 201 tests
+tests/               # 26 vitest files, 345 tests (+ fixtures/, frozen)
+  browser/           # 4 Playwright specs, 28 tests: GLSL↔reference parity,
+                     # OfflineAudioContext safety, realtime dropouts, e2e
 docs/
   CHANGELOG.md DECISIONS.md TODO.md ROADMAP-SYMBIOSIS.md FAMILY-PACKS.md GROK-BRIEFING.md
+  HANDOFF.md         # state + traps, read before touching the audio path
+  adr/001-av-layer.md
 
 Rules:
 - core/, search/, store/ have no DOM dependency — testable in Node.
@@ -131,9 +153,19 @@ Output: scalar (→ palette), or top-level vec2(dx,dy) (domain warp) or vec3(r,g
 vec2/vec3 only as the outermost call (ADR #4).
 Hazard: never ^ / sqrt / log on possibly-negative values (undefined on GPU) —
 use abs() or length(a,b).
-Reserved for later: prev(x,y) (feedback buffer), in1..in4 (live inputs).
+Shipped since: prev(x,y) (feedback buffer, arity 2). Reserved for later:
+in1..in4 (live inputs).
+IN AUDIO: prev(), dx and dy evaluate to 0 (no frame buffer at 48 kHz, no screen
+pixel) — the emitter reports them as `silent`, the panel says so per formula,
+and stats.audio records the list. Do not let that limit become implicit again.
 
-6. Snapshot schema (v2 — current)
+6. Snapshot schema (v4 — current; v2 described below, plus:)
+v3 added `scan {path, freq, origin}` (origin says whether a session chose it or
+a migration defaulted it) and `stats.audio`; v4 made stats.audio
+`{pre, post, silent}` — pre is measured before the normalizer/limiter, because
+post grades the output chain and not the formula (ADR #35/#36).
+migrate() covers v1→v2→v3→v4, tested against frozen fixtures in tests/fixtures/.
+
 Same as v1 plus display style. Fields: schema(2), id, created, parent_ids, origin
 (typed|mutate|crossover|sample|llm|family), operator, family, formula{source,ast},
 params, locks, coords, palette(int), smooth(bool), tone(0=clamp|1=wrap|2=fold),
@@ -191,5 +223,6 @@ tixy.land · viznut bytebeat · Sprott "Automatic generation of strange attracto
 2022) · dotsimulate GLSL Creator LOP.
 
 12. First prompt for a fresh session
-Read CLAUDE.md, docs/CHANGELOG.md (last entries) and docs/TODO.md. Report status
-in three lines, then propose the next step from the top of TODO.md and wait.
+Read CLAUDE.md, docs/CHANGELOG.md (last entries), docs/TODO.md and
+docs/HANDOFF.md. Report status in three lines, then propose the next step from
+the top of TODO.md and wait.

@@ -15,9 +15,29 @@ palettes + tone mapping ✓. Ordered by agreed priority; sizes are sessions.
 2b. ~~dx/dy pixel step + bitwise helpers~~ ✓ SHIPPED 2026-09-01 (ADR #26/#27,
    family bit.bytebeat_pixel). Deliberately NOT done: `lap()` sugar, `in1..in4`,
    `s_ent`/`s_sym`.
-3. **⏸ USE IT** — a full evening of real play (v1/v2 DoD are usage-based;
-   archive needs to grow past ~10 snapshots). The friction list from that
-   evening reorders everything below. ← YOU ARE HERE
+2c. ~~AV layer: every formula is image AND sound~~ ✓ SHIPPED 2026-09-01.
+   One AST → emitGLSL + emitJS → AudioWorklet (plan: docs/adr/001-av-layer.md,
+   decisions #31–#39). Parametric f(t) plays as L/R with an XY scope; field
+   formulas sound through a scan path (liss/spiral/line, 27.5 Hz–1.76 kHz).
+   Safety chain, dropout meter on the audio thread, mutation-tested emitter,
+   schema v4 (`scan` + `stats.audio {pre, post, silent}`). 345 unit + 28
+   browser tests. **Read docs/HANDOFF.md before touching the audio path.**
+3. **⏸ USE IT** — a full evening of real play, now with sound (v1/v2 DoD are
+   usage-based; archive needs to grow past ~10 snapshots). The friction list
+   from that evening reorders everything below. ← YOU ARE HERE
+
+## Open in the AV layer (details + reasons in docs/HANDOFF.md)
+
+- **A1 stats.audio → zero-player novelty.** Measuring pre-limiter exists so
+  discoveries can be ranked on sound as well as image; nothing reads it yet.
+  This is the payoff of ADR #35 and the smallest next AV step. (~0.5)
+- **A2 prev() in audio, or a written decision that it stays image-only.**
+  It is 0 at 48 kHz today, declared honestly (ADR #38) but still a place where
+  one formula means two things. (~1)
+- **A3 scan path parameters** — row count for `line`, windings for `spiral`,
+  ratio for `lissajous`; all hardcoded now. (~0.5)
+- Parked: Chrome `renderCapacity` as a second opinion for the dropout meter
+  (absent in this build); goldens across JS engines for chaotic formulas.
 
 ## Roadmap phases (docs/ROADMAP-SYMBIOSIS.md)
 
