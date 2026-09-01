@@ -43,6 +43,16 @@ export class Renderer {
     this.vao = gl.createVertexArray();
     this.usesPrev = false;
     this.feedback = null; // allocated lazily, only for formulas that use prev()
+    this.camSource = null;   // <video> from input/camera.js, or null
+    this.camTexture = null;  // lazily: 1×1 mid-gray until a frame is uploaded
+    this.camUploadedTime = -1;
+  }
+
+  /** Point cam() at a playing <video> (null = camera off → mid-gray). */
+  setCameraSource(video) {
+    this.camSource = video;
+    this.camUploadedTime = -1;
+    if (!video && this.camTexture) this.fillCamGray();
   }
 
   /**
@@ -69,6 +79,9 @@ export class Renderer {
       smooth: gl.getUniformLocation(program, 'u_smooth'),
       tone: gl.getUniformLocation(program, 'u_tone'),
       prev: gl.getUniformLocation(program, 'u_prev'),
+      cam: gl.getUniformLocation(program, 'u_cam'),
+      camFit: gl.getUniformLocation(program, 'u_cam_fit'),
+      mot: gl.getUniformLocation(program, 'u_mot'),
     };
     this.paramLocations = {};
     for (const name of paramNames) {
@@ -111,6 +124,8 @@ export class Renderer {
     gl.uniform1i(this.uniforms.palette, state.palette ?? 0);
     gl.uniform1i(this.uniforms.smooth, state.smooth ? 1 : 0);
     gl.uniform1i(this.uniforms.tone, state.tone ?? 0);
+    if (this.uniforms.mot) gl.uniform1f(this.uniforms.mot, state.mot ?? 0);
+    if (this.uniforms.cam) this.bindCamera();
     if (state.params) {
       for (const [name, loc] of Object.entries(this.paramLocations || {})) {
         gl.uniform1f(loc, state.params[name] ?? 0);
@@ -131,6 +146,51 @@ export class Renderer {
     this.feedback.bindWrite();
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     this.feedback.present();
+  }
+
+  /**
+   * Bind the camera texture on unit 1 (unit 0 belongs to the feedback pass),
+   * uploading the current video frame once per new frame. Without a source
+   * the texture is 1×1 mid-gray, so cam() reads 0 everywhere (ADR #41).
+   */
+  bindCamera() {
+    const gl = this.gl;
+    gl.activeTexture(gl.TEXTURE1);
+    if (!this.camTexture) {
+      this.camTexture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.camTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      this.fillCamGray();
+    } else {
+      gl.bindTexture(gl.TEXTURE_2D, this.camTexture);
+    }
+    const v = this.camSource;
+    let fit = [1, 1];
+    if (v && v.readyState >= 2 && v.videoWidth > 0) {
+      if (v.currentTime !== this.camUploadedTime) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v);
+        this.camUploadedTime = v.currentTime;
+      }
+      // cover-fit: crop the camera to the canvas aspect instead of stretching
+      const ca = this.canvas.width / this.canvas.height;
+      const va = v.videoWidth / v.videoHeight;
+      fit = va > ca ? [ca / va, 1] : [1, va / ca];
+    }
+    gl.uniform1i(this.uniforms.cam, 1);
+    gl.uniform2f(this.uniforms.camFit, fit[0], fit[1]);
+    gl.activeTexture(gl.TEXTURE0);
+  }
+
+  fillCamGray() {
+    const gl = this.gl;
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.camTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+      new Uint8Array([128, 128, 128, 255]));
+    gl.activeTexture(gl.TEXTURE0);
   }
 
   /** Read the just-rendered frame back (call in the same task as render()). */

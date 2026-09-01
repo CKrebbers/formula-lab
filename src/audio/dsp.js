@@ -298,7 +298,7 @@ export class SynthCore {
     this.t = 0;        // shared phase clock, seconds
     this.frame = 0;    // output-sample index → env.i
     this.env = {
-      x: 0, y: 0, t: 0, r: 0, th: 0, mx: 0, my: 0, i: 0, dx: 0, dy: 0,
+      x: 0, y: 0, t: 0, r: 0, th: 0, mx: 0, my: 0, i: 0, dx: 0, dy: 0, mot: 0,
       params: {},
     };
     this.paramTargets = {};
@@ -378,6 +378,11 @@ export class SynthCore {
   setMouse(mx, my) {
     this.env.mx = mx;
     this.env.my = my;
+  }
+
+  /** Live scalar inputs that exist at audio rate too (mot — camera motion). */
+  setInputs(inputs) {
+    if (inputs && typeof inputs.mot === 'number') this.env.mot = inputs.mot;
   }
 
   setTime(t) {

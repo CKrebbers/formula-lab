@@ -3,13 +3,16 @@
 // of the slider range, rate is in Hz. 'walk' is a deterministic pseudo-random
 // drift (layered incommensurate sines), so it needs no RNG state.
 
-export const MODES = ['off', 'sine', 'tri', 'walk', 'bass', 'mid', 'high'];
+export const MODES = ['off', 'sine', 'tri', 'walk', 'bass', 'mid', 'high', 'cam'];
 
 export const AUDIO_MODES = ['bass', 'mid', 'high'];
+/** Live-input modes: read {level, pulse} from the inputs frame passed to evaluate(). */
+export const INPUT_MODES = [...AUDIO_MODES, 'cam'];
 
 export const MODE_ICONS = {
   off: '·', sine: '∿', tri: '△', walk: '≈',
   bass: '♪b', mid: '♪m', high: '♪h',
+  cam: '◉',
   gesture: '↺',
 };
 
@@ -168,7 +171,7 @@ export function evaluate(auto, range, t, audio = null) {
     const j = Math.min(i + 1, g.wave.length - 1);
     const w = g.wave[i] + (g.wave[j] - g.wave[i]) * (pos - i);
     v = auto.center + g.amp * auto.depth * shape(w, auto.curve);
-  } else if (AUDIO_MODES.includes(auto.mode)) {
+  } else if (INPUT_MODES.includes(auto.mode)) {
     const band = audio?.[auto.mode];
     if (!band) return auto.center;
     const focus = Math.min(1, Math.max(0, auto.rate / 2));

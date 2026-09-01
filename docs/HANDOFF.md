@@ -45,6 +45,10 @@ unfinished.
    `playwright.config.js`. In the real app, audio needs one genuine click.
 8. **Background tabs throttle timers AND rAF.** Verify anything time-based in a
    foreground tab or in Node.
+9. **`cam()` reads 0 wherever no camera runs** — tiles, thumbs, §7 stats, the
+   audio backend, and displays until their own getUserMedia resolves. The
+   renderer binds a 1×1 mid-gray on texture unit 1; unit 0 stays the feedback
+   pass. `mot` IS heard in audio (rides the params message). ADR #41.
 
 ## Deliberately unfinished
 

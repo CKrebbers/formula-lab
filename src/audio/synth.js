@@ -115,9 +115,10 @@ export class AVSound {
   }
 
   /** Stream the live param values (already glide/LFO-smoothed upstream). */
-  setParams(params, mouse) {
+  setParams(params, mouse, inputs = null) {
+    this.inputs = inputs; // the scope's evalAt reads the same live inputs
     if (!this.ctx || !this.playing) return;
-    this.node.port.postMessage({ type: 'params', params, mouse });
+    this.node.port.postMessage({ type: 'params', params, mouse, inputs });
   }
 
   async start(formulaTime) {
@@ -168,7 +169,7 @@ export class AVSound {
     }
     const env = {
       x, y, t, r, th,
-      mx: mouse[0], my: mouse[1],
+      mx: mouse[0], my: mouse[1], mot: this.inputs?.mot ?? 0,
       i: Math.floor(t * 48000), dx: 0, dy: 0, params,
     };
     try {

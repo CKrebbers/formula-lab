@@ -326,6 +326,25 @@
     window (would need full state sync over BroadcastChannel; `⧉ out` already
     puts the image elsewhere, which is the same separation the other way round).
 
+41. **The camera is a field and a scalar, not a special mode.** `cam(x, y)` is a
+    whitelisted arity-2 function (camera luminance at formula coords, mirrored,
+    cover-fitted, -1..1) and `mot` a variable (motion amount 0..1); both go
+    through the same AST → GLSL path as everything else, so they mutate, cross
+    over, save and permalink like any term. Rules that follow: (a) without a
+    camera the renderer binds a 1×1 mid-gray so cam() reads 0 and mot is 0 — a
+    formula dims instead of dying, and the panel prints a note; (b) `cam()` is
+    audio-silent like prev() (declared via audioSilentTerms), `mot` IS heard
+    (it travels with the params message); (c) mutation never swaps cam() in
+    (NO_SWAP_IN) — a formula earns the camera by asking; (d) families marked
+    `input: 'camera'` are excluded from random starts and the zero-player;
+    (e) a display window that receives a cam/mot formula opens its own camera —
+    frames do not cross BroadcastChannel, permission does (same origin);
+    (f) motion is an input frame `{level, pulse}` shaped exactly like an audio
+    band, so ◉cam is one more automation mode with zero new evaluate() code.
+    Tiles/thumbs/stats render cam() as 0 — a camera snapshot's stats describe
+    the formula without you in it. Not done: motion centroid as variables,
+    color (cam is luminance only), a display-side camera toggle.
+
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

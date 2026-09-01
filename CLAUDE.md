@@ -107,6 +107,7 @@ src/
   core/
     ast.js parser.js print.js glsl.js constants.js automate.js glitch.js modulators.js
     steps.js       # one step scale (fine/×1/coarse) for every slider gesture
+    motion.js      # camera motion → {level, pulse}, pure (the shape of an audio band)
     js.js          # AST → JS (the audio twin of glsl.js) + audioSilentTerms()
     jsruntime.js   # FL: JS mirror of the fl_* GLSL helpers (float32-emulated hash)
     interp.js      # reference AST evaluator — the leg the parity tests stand on
@@ -118,6 +119,8 @@ src/
     snapshot.js archive.js url.js
   sync/
     local.js         # BroadcastChannel; transport-agnostic {type, payload}
+  input/
+    camera.js        # getUserMedia + <video> for the cam() texture + motion frames
   audio/
     engine.js analysis.js        # audio REACTIVITY (listening: tab/mic → bands)
     dsp.js                       # SynthCore, output chain, scan paths, DropoutMeter
@@ -155,7 +158,9 @@ Output: scalar (→ palette), or top-level vec2(dx,dy) (domain warp) or vec3(r,g
 vec2/vec3 only as the outermost call (ADR #4).
 Hazard: never ^ / sqrt / log on possibly-negative values (undefined on GPU) —
 use abs() or length(a,b).
-Shipped since: prev(x,y) (feedback buffer, arity 2). Reserved for later:
+Shipped since: prev(x,y) (feedback buffer, arity 2); cam(x,y) (camera
+luminance at formula coords, mirrored, -1..1, 0 while the camera is off) and
+the variable mot (camera motion 0..1) — ADR #41. Reserved for later:
 in1..in4 (live inputs).
 IN AUDIO: prev(), dx and dy evaluate to 0 (no frame buffer at 48 kHz, no screen
 pixel) — the emitter reports them as `silent`, the panel says so per formula,

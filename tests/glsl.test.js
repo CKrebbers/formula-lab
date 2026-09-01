@@ -187,3 +187,26 @@ describe('glsl: full shader (golden structure)', () => {
     expect(() => transpile({ type: 'call', name: 'system', args: [] })).toThrow(TranspileError);
   });
 });
+
+describe('camera terms (ADR #41)', () => {
+  it('emits the cam texture and helper only when cam() is used', () => {
+    const plain = transpile(parse('sin(x * y + t)'));
+    expect(plain.usesCam).toBe(false);
+    expect(plain.fragmentSource).not.toContain('u_cam');
+    expect(plain.fragmentSource).not.toContain('u_mot');
+    const seeing = transpile(parse('mix(sin(x * 8.0 + t), cam(x, y), 0.5)'));
+    expect(seeing.usesCam).toBe(true);
+    expect(seeing.fragmentSource).toContain('uniform sampler2D u_cam;');
+    expect(seeing.fragmentSource).toContain('uniform vec2 u_cam_fit;');
+    expect(seeing.fragmentSource).toContain('fl_cam(');
+    expect(seeing.fragmentSource).not.toContain('u_mot'); // mot not read here
+  });
+
+  it('declares u_mot only when the formula reads mot', () => {
+    const src = transpile(parse('sin(length(x, y) * 10.0 - t * (1.0 + mot * 4.0))')).fragmentSource;
+    expect(src).toContain('uniform float u_mot;');
+    expect(src).toContain('float mot = u_mot;');
+    expect(src).not.toContain('u_cam');
+  });
+});
+

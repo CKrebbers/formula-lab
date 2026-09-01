@@ -60,3 +60,17 @@ describe('mutate: constTweak', () => {
     expect(a).toEqual(b);
   });
 });
+
+describe('func_swap never swaps cam() in (ADR #41)', () => {
+  it('over many swaps of an arity-2 call, cam is never chosen', async () => {
+    const { funcSwap } = await import('../src/search/mutate.js');
+    const { parse } = await import('../src/core/parser.js');
+    const { print } = await import('../src/core/print.js');
+    let seed = 7;
+    const rng = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    for (let i = 0; i < 300; i++) {
+      const out = funcSwap(parse('noise(x, y) * 0.5 + t'), rng);
+      if (out) expect(print(out)).not.toContain('cam(');
+    }
+  });
+});

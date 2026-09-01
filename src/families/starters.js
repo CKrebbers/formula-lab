@@ -1,10 +1,19 @@
 // Cold-start examples: the first minute must never require typing.
-// Five one-click starting points, deliberately different in kind — a wave,
-// a feedback toy, integer glitch, a fractal and a domain warp — so the first
+// Six one-click starting points, deliberately different in kind — the camera,
+// a wave, a feedback toy, integer glitch, a fractal and a domain warp — so the first
 // thing a new session sees is the range of the instrument, not a blank lab.
 // Sources are self-contained (no family lookup) so this list cannot rot.
 
 export const STARTERS = [
+  {
+    id: 'mirror',
+    label: 'Mirror',
+    source: 'mix(sin(length(x, y) * 9.0 - t * 1.5), cam(x, y) * 1.2, 0.55 + mot * 0.4)',
+    coords: 'cartesian',
+    palette: 0,
+    smooth: true,
+    tone: 0,
+  },
   {
     id: 'ripple',
     label: 'Ripple',

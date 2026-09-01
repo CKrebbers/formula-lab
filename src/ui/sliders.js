@@ -7,7 +7,7 @@ import { inferRange, reroll } from '../core/constants.js';
 import { sliderStep, wheelZoomFactor, wheelNudge } from '../core/steps.js';
 import {
   createAutomation, evaluate, nextMode, glideValue, swapAutomationSettings,
-  extractGesture, MODE_ICONS, AUDIO_MODES,
+  extractGesture, MODE_ICONS, AUDIO_MODES, INPUT_MODES,
 } from '../core/automate.js';
 
 const HISTORY_SECONDS = 30; // rolling take: capture-last-take reads from this
@@ -274,13 +274,16 @@ export class SliderPanel {
     row.depthInput.value = auto.depth;
     row.curveInput.value = auto.curve ?? 0;
     const isAudio = AUDIO_MODES.includes(auto.mode);
+    const isCam = auto.mode === 'cam';
     const isGesture = auto.mode === 'gesture';
-    row.rateLabel.textContent = isGesture ? 'spd' : isAudio ? 'r↔h' : 'rate';
+    row.rateLabel.textContent = isGesture ? 'spd' : isCam ? 'm↔p' : isAudio ? 'r↔h' : 'rate';
     row.rateInput.title = isGesture
       ? 'playback speed (1 = original tempo)'
-      : isAudio
-        ? 'focus: left = hardness (loudness level), right = rhythm (beat pulses)'
-        : 'rate (Hz)';
+      : isCam
+        ? 'focus: left = motion amount (how much moves), right = motion onsets (sudden moves)'
+        : isAudio
+          ? 'focus: left = hardness (loudness level), right = rhythm (beat pulses)'
+          : 'rate (Hz)';
   }
 
   /**

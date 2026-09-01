@@ -4,7 +4,8 @@
 // swapping genotypes. Own clock, own mouse; no UI.
 
 import { parse } from './core/parser.js';
-import { transpile } from './core/glsl.js';
+import { transpile, usesMot } from './core/glsl.js';
+import { Camera } from './input/camera.js';
 import { extractParams } from './core/constants.js';
 import { Renderer } from './render/gl.js';
 import { SyncChannel } from './sync/local.js';
@@ -32,14 +33,29 @@ export function initDisplay() {
   let zTop = 1;
 
   const sync = new SyncChannel();
-  const state = { time: 0, mouse: [0, 0], params: {}, coords: 0 };
+  const state = { time: 0, mouse: [0, 0], params: {}, coords: 0, mot: 0 };
   let hasFormula = false;
+
+  // a display that receives a camera formula opens its own camera: frames do
+  // not travel over BroadcastChannel, permission does (same origin as the panel)
+  const camera = new Camera();
+  function ensureCamera() {
+    if (camera.active) return;
+    camera.start()
+      .then(() => layers.forEach((l) => l.renderer.setCameraSource(camera.video)))
+      .catch((err) => {
+        statusEl.hidden = false;
+        statusEl.textContent = `display: camera — ${err.message}`;
+      });
+  }
+  camera.onStopped = () => layers.forEach((l) => l.renderer.setCameraSource(null));
 
   sync.on('formula', ({ source, coords, params, palette, smooth, tone }) => {
     const back = layers[1 - frontIdx];
     try {
       const { ast, params: extracted } = extractParams(parse(source));
-      const { fragmentSource, paramNames, usesPrev } = transpile(ast);
+      const { fragmentSource, paramNames, usesPrev, usesCam } = transpile(ast);
+      if (usesCam || usesMot(ast)) ensureCamera();
       // setFragmentShader resets the incoming layer's feedback, so a crossfade
       // never starts from the previous formula's trails
       back.renderer.setFragmentShader(fragmentSource, paramNames, usesPrev);
@@ -94,6 +110,8 @@ export function initDisplay() {
   const start = performance.now();
   (function frame(now) {
     state.time = (now - start) / 1000;
+    const camFrame = camera.tick(state.time);
+    state.mot = camFrame ? camFrame.level : 0;
     const front = layers[frontIdx];
     const back = layers[1 - frontIdx];
     if (front.live) front.renderer.render(state);

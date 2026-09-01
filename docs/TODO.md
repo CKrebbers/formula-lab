@@ -92,8 +92,11 @@ palettes + tone mapping ✓. Ordered by agreed priority; sizes are sessions.
   OSC bridge (WebSocket↔UDP for NEXUS — never touch NEXUS itself);
   exports: clean GLSL, TouchDesigner GLSL TOP wrapper, Shadertoy wrapper,
   hi-res PNG, PNG-sequence/WebM loop.
-- **Parked behind v4 (brief)** — VLM night-curator, session replay, webcam
-  input, NDI/Syphon, sonification, 3D/raymarch, cross-family translation.
+- **Parked behind v4 (brief)** — VLM night-curator, session replay,
+  NDI/Syphon, sonification, 3D/raymarch, cross-family translation.
+  ~~webcam input~~ ✓ SHIPPED 2026-09-01 as `cam(x, y)` + `mot` + ◉cam
+  automation (ADR #41). Open: motion centroid as variables, colour, a camera
+  toggle on the display window.
 
 ## Small debts / polish
 

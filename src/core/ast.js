@@ -13,7 +13,8 @@
 
 // dx/dy are the size of one screen pixel in the pre-remap uv space that x/y
 // are built from — the step you need for neighbour sampling and derivatives.
-export const VARIABLES = ['x', 'y', 't', 'r', 'th', 'mx', 'my', 'i', 'dx', 'dy'];
+// mot is the camera's motion amount (0..1), 0 while no camera runs (ADR #41).
+export const VARIABLES = ['x', 'y', 't', 'r', 'th', 'mx', 'my', 'i', 'dx', 'dy', 'mot'];
 
 export const BINARY_OPS = ['+', '-', '*', '/', '^', '<', '>', '=='];
 
@@ -35,6 +36,8 @@ export const FUNCTIONS = {
   julia: [5], ship: [5], kali: [5], orbit: [5],
   // previous frame (feedback buffer) — luminance at formula coords
   prev: [2],
+  // camera luminance at formula coords, mirrored, -1..1; 0 while no camera runs
+  cam: [2],
   // bitwise on integers (floats in, floats out) — bytebeat / pixel logic.
   // '^' stays pow(), so xor is spelled bxor.
   band: [2], bor: [2], bxor: [2], shl: [2], shr: [2], bnot: [1],

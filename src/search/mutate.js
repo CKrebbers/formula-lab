@@ -73,19 +73,23 @@ export function opSwap(ast, rng) {
 export function funcSwap(ast, rng) {
   const { root, slots } = prepare(ast);
   const calls = slots.filter(
-    (s) => s.node.type === 'call' && s.node.name !== 'vec2' && s.node.name !== 'vec3'
+    (s) => s.node.type === 'call' && !NO_SWAP_IN.includes(s.node.name)
   );
   if (!calls.length) return null;
   const slot = pick(rng, calls);
   const arity = slot.node.args.length;
   const candidates = Object.entries(FUNCTIONS)
     .filter(([name, arities]) =>
-      arities.includes(arity) && name !== slot.node.name && name !== 'vec2' && name !== 'vec3')
+      arities.includes(arity) && name !== slot.node.name && !NO_SWAP_IN.includes(name))
     .map(([name]) => name);
   if (!candidates.length) return null;
   slot.node.name = pick(rng, candidates);
   return root;
 }
+
+// never swapped in by mutation: output constructors, and cam() — it reads 0
+// without a camera, so a formula only earns it by asking (ADR #41)
+const NO_SWAP_IN = ['vec2', 'vec3', 'cam'];
 
 /** 5. node_insert — wrap a random subtree in abs / fract / sin / fold. */
 export function nodeInsert(ast, rng) {

@@ -19,7 +19,8 @@ function emit(node, isTopLevel = false) {
       return `(${String(node.value)})`;
     }
     case 'var':
-      return `env.${node.name}`;
+      // live inputs are optional in env: an older caller without them hears 0
+      return node.name === 'mot' ? '(env.mot || 0)' : `env.${node.name}`;
     case 'param':
       return `(P.${node.name} ?? 0)`;
     case 'neg':
@@ -72,7 +73,7 @@ function emitCall(node, isTopLevel) {
  * reports it and the UI and the saved measurement carry it.
  */
 const AUDIO_SILENT_VARS = ['dx', 'dy'];
-const AUDIO_SILENT_CALLS = ['prev'];
+const AUDIO_SILENT_CALLS = ['prev', 'cam']; // no frame buffer, no camera texture at audio rate
 
 /** @returns {string[]} sorted names of this formula's audio-silent terms. */
 export function audioSilentTerms(node, found = new Set()) {

@@ -31,6 +31,7 @@ class FormulaLabProcessor extends AudioWorkletProcessor {
       case 'params':
         this.core.setParams(msg.params);
         if (msg.mouse) this.core.setMouse(msg.mouse[0], msg.mouse[1]);
+        if (msg.inputs) this.core.setInputs(msg.inputs);
         break;
       case 'time':
         this.core.setTime(msg.t);

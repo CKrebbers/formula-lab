@@ -89,6 +89,7 @@ describe('audio-silent terms (ADR #38)', () => {
     expect(silentOf('prev(x, y) * 0.97 + sin(t)')).toEqual(['prev()']);
     expect(silentOf('prev(x + dx, y) - prev(x - dx, y)')).toEqual(['dx', 'prev()']);
     expect(silentOf('sin(x + dx) + cos(y + dy)')).toEqual(['dx', 'dy']);
+    expect(silentOf('cam(x, y) * (0.5 + mot)')).toEqual(['cam()']); // mot is heard, cam is not
   });
 
   it('says nothing about a formula that is fully audible', () => {

@@ -3,7 +3,7 @@
 
 import { parse } from './core/parser.js';
 import { serialize } from './core/ast.js';
-import { transpile, PALETTES, TONES } from './core/glsl.js';
+import { transpile, usesMot, PALETTES, TONES } from './core/glsl.js';
 import { extractParams } from './core/constants.js';
 import { Renderer } from './render/gl.js';
 import { TileRenderer } from './render/tile.js';
@@ -22,7 +22,8 @@ import { encodePermalink, decodePermalink } from './store/url.js';
 import { ElitesGrid } from './search/elites.js';
 import { Explorer } from './search/explore.js';
 import { ElitesPanel } from './ui/elites.js';
-import { FAMILIES } from './families/index.js';
+import { FAMILIES, autonomousFamilies } from './families/index.js';
+import { Camera } from './input/camera.js';
 import { SyncChannel } from './sync/local.js';
 import { CueProgram } from './sync/cue.js';
 import { initDisplay } from './display.js';
@@ -78,6 +79,7 @@ function initPanel() {
   const cue = new CueProgram((type, payload) => sync.send(type, payload));
   const modStack = new ModStack();
   const audioEngine = new AudioEngine();
+  const camera = new Camera();
   const avSound = new AVSound();
   const scope = new Scope(el('scope'));
   let sndOn = false;
@@ -180,12 +182,14 @@ function initPanel() {
       fragmentSource: compiled.fragmentSource,
       paramNames: compiled.paramNames,
       usesPrev: compiled.usesPrev,
+      needsCamera: compiled.usesCam || usesMot(ast),
     };
     sliders.rebuild(params);
     sheet.clear();
     updateStatus();
     avSound.setFormula(ast); // sound follows the cue, like the panel canvas
     showAudioNote();
+    showCamNote();
     syncAudioRun();          // after updateStatus: its hint must survive
     cueChanged(); // the panel canvas is the cue preview; displays wait for TAKE
   }
@@ -202,6 +206,16 @@ function initPanel() {
     note.hidden = silent.length === 0;
     if (silent.length) {
       note.textContent = `♪ ${silent.join(', ')} = 0 in sound — you hear only the rest of the formula`;
+    }
+  }
+
+  /** A formula that reads the camera says so while the camera is off. */
+  function showCamNote() {
+    const note = el('cam-note');
+    const needs = !!currentShader?.needsCamera;
+    note.hidden = !(needs && !camera.active);
+    if (!note.hidden) {
+      note.textContent = '◉ this formula reads the camera — cam() = 0 and mot = 0 until ◉ cam is on';
     }
   }
 
@@ -397,7 +411,7 @@ function initPanel() {
     }
   }
 
-  const explorer = new Explorer({ families: FAMILIES, evaluate: evaluateCandidate });
+  const explorer = new Explorer({ families: autonomousFamilies(FAMILIES), evaluate: evaluateCandidate });
   let autoTimer = null;
   let autoBusy = false;
 
@@ -542,7 +556,7 @@ function initPanel() {
   const packsPanel = new PacksPanel(el('packs'), packs, {
     onChange() {
       familyPicker.refresh();
-      explorer.families = allFamilies(); // zero-player explores new generations too
+      explorer.families = autonomousFamilies(allFamilies()); // zero-player explores new generations too
     },
     buildPrompt: () => buildFamilyPrompt({
       snapshots: archive.list(),
@@ -615,6 +629,26 @@ function initPanel() {
   }
   el('audio-tab').addEventListener('click', () => toggleAudio('audio-tab', () => audioEngine.startTab()));
   el('audio-mic').addEventListener('click', () => toggleAudio('audio-mic', () => audioEngine.startMic()));
+
+  // camera: cam(x, y) texture + mot scalar + ◉ automation source (ADR #41)
+  camera.onStopped = () => {
+    el('cam').classList.remove('active');
+    renderer.setCameraSource(null);
+    state.mot = 0;
+    showCamNote();
+  };
+  el('cam').addEventListener('click', async () => {
+    if (camera.active) { camera.stop(); return; }
+    try {
+      await camera.start();
+      renderer.setCameraSource(camera.video);
+      el('cam').classList.add('active');
+      showCamNote();
+      updateStatus(' · ◉ camera on — cam(x, y) sees you, mot follows motion, sliders can follow ◉');
+    } catch (err) {
+      updateStatus(` · camera: ${err.message}`);
+    }
+  });
   avSound.onError = (message) => updateStatus(` · sound: ${message}`);
   // dropouts are measured on the audio thread; say so instead of letting the
   // sound quietly stutter (ADR #33). Throttled: a struggling machine reports
@@ -715,7 +749,8 @@ function initPanel() {
           setCoords(Math.floor(Math.random() * 3));
           return;
         }
-        const family = FAMILIES[Math.floor(Math.random() * FAMILIES.length)];
+        const pool = autonomousFamilies(FAMILIES); // camera families need ◉ cam first
+        const family = pool[Math.floor(Math.random() * pool.length)];
         const { ast, params } = extractParams(parse(family.source));
         const set = lhsParamSets(params, 1, Math.random)[0];
         textarea.value = print(substituteParams(ast, set));
@@ -760,7 +795,11 @@ function initPanel() {
   let lastSentCoords = null;
   function frame(now) {
     state.time = (now - start) / 1000;
-    sliders.tick(state.time, audioEngine.tick(state.time));
+    const camFrame = camera.tick(state.time);
+    state.mot = camFrame ? camFrame.level : 0;
+    const audioFrame = audioEngine.tick(state.time);
+    // one inputs frame for every live-input automation mode: ♪ bands + ◉ cam
+    sliders.tick(state.time, audioFrame || camFrame ? { ...(audioFrame || {}), cam: camFrame } : null);
     // modulators are a render-time overlay: base params stay clean
     const g = modStack.tick(state.time, state.params, sliders.ranges());
     const renderState = g.modulating
@@ -771,7 +810,7 @@ function initPanel() {
     // share a formula, so sliders/LFOs/audio keep driving the live image
     if (frameCount++ % 2 === 0) {
       cue.live('params', { params: renderState.params }, textarea.value);
-      avSound.setParams(renderState.params, state.mouse); // sound hears the mods too
+      avSound.setParams(renderState.params, state.mouse, { mot: state.mot }); // sound hears the mods too
     }
     if (avSound.playing) scope.draw(avSound, renderState.params, state.mouse);
     if (renderState.coords !== lastSentCoords) {

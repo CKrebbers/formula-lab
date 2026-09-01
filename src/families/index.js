@@ -18,6 +18,7 @@ import iterShip from './iter-ship.js';
 import iterKaliset from './iter-kaliset.js';
 import iterOrbit from './iter-orbit.js';
 import bitBytebeat from './bit-bytebeat.js';
+import camMirror from './cam-mirror.js';
 
 export const FAMILIES = [
   fieldTrig,
@@ -35,7 +36,13 @@ export const FAMILIES = [
   iterKaliset,
   iterOrbit,
   bitBytebeat,
+  camMirror,
 ];
+
+/** Families that work without a live input — for random starts and the zero-player. */
+export function autonomousFamilies(list = FAMILIES) {
+  return list.filter((f) => !f.input);
+}
 
 export function getFamily(id) {
   return FAMILIES.find((f) => f.id === id) ?? null;

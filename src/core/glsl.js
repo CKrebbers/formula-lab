@@ -108,6 +108,7 @@ function emitCall(node, isTopLevel) {
     case 'orbit':
     case 'fold':
     case 'prev':
+    case 'cam':
     case 'band':
     case 'bor':
     case 'bxor':
@@ -149,6 +150,31 @@ export function usesPrev(node) {
       return usesPrev(node.left) || usesPrev(node.right);
     case 'call':
       return node.name === 'prev' || node.args.some(usesPrev);
+    default:
+      return false;
+  }
+}
+
+/** Does this AST sample the camera? Decides whether the cam texture is bound. */
+export function usesCam(node) {
+  return usesName(node, 'cam', null);
+}
+
+/** Does this AST read the `mot` variable? */
+export function usesMot(node) {
+  return usesName(node, null, 'mot');
+}
+
+function usesName(node, callName, varName) {
+  switch (node.type) {
+    case 'var':
+      return node.name === varName;
+    case 'neg':
+      return usesName(node.arg, callName, varName);
+    case 'bin':
+      return usesName(node.left, callName, varName) || usesName(node.right, callName, varName);
+    case 'call':
+      return node.name === callName || node.args.some((a) => usesName(a, callName, varName));
     default:
       return false;
   }
@@ -330,8 +356,28 @@ float fl_prev(float px, float py) {
 `;
 
 /**
+ * cam(x, y) — camera luminance at formula coords. Same screen mapping as
+ * prev(), then mirrored horizontally (a mirror, not a photo), flipped
+ * vertically (video rows start at the top) and cover-fitted with u_cam_fit so
+ * a 4:3 camera on a 16:9 canvas crops instead of stretching. Only emitted
+ * when used. Returns -1..1 like every other field; an empty texture reads
+ * black = -1... except the renderer binds a mid-gray 1×1 while no camera runs,
+ * so cam() reads 0 and a mix() with it dims instead of dying (ADR #41).
+ */
+const CAM_HELPER = /* glsl */ `
+float fl_cam(float px, float py) {
+  vec2 uv = (vec2(px, py) * min(u_resolution.x, u_resolution.y) + u_resolution)
+          / (2.0 * u_resolution);
+  uv = 0.5 + (uv - 0.5) * u_cam_fit;
+  uv = vec2(1.0 - uv.x, 1.0 - uv.y);
+  vec3 c = texture(u_cam, uv).rgb;
+  return dot(c, vec3(0.2126, 0.7152, 0.0722)) * 2.0 - 1.0;
+}
+`;
+
+/**
  * Transpile a validated AST into a complete fragment shader.
- * Returns { fragmentSource, mode, expression, paramNames, usesPrev }.
+ * Returns { fragmentSource, mode, expression, paramNames, usesPrev, usesCam }.
  */
 export function transpile(ast) {
   const check = validate(ast);
@@ -344,6 +390,13 @@ export function transpile(ast) {
   const needsPrev = usesPrev(ast);
   const prevUniform = needsPrev ? 'uniform sampler2D u_prev;\n' : '';
   const prevHelper = needsPrev ? PREV_HELPER : '';
+  const needsCam = usesCam(ast);
+  const camUniform = needsCam ? 'uniform sampler2D u_cam;\nuniform vec2 u_cam_fit;\n' : '';
+  const camHelper = needsCam ? CAM_HELPER : '';
+  // mot only when read: every formula without it compiles to the exact shader it did
+  const needsMot = usesMot(ast);
+  const motUniform = needsMot ? 'uniform float u_mot;\n' : '';
+  const motLine = needsMot ? '  float mot = u_mot;\n' : '';
   // Alpha carries the continuous scalar for the next frame's prev() — clamped
   // because the buffer is 8-bit. vec3 mode has no scalar, so it feeds back its
   // own luminance. Without prev() the alpha stays 1.0 and the shader is
@@ -383,9 +436,9 @@ uniform int u_raw;     // 1 = skip the palette LUT (continuous grayscale, for st
 uniform int u_palette; // LUT index (see PALETTES)
 uniform int u_smooth;  // 0 = quantized pixel-art steps, 1 = interpolated
 uniform int u_tone;    // 0 = clamp, 1 = wrap, 2 = fold
-${prevUniform}${paramUniforms}
+${prevUniform}${camUniform}${motUniform}${paramUniforms}
 out vec4 outColor;
-${HELPERS}${prevHelper}
+${HELPERS}${prevHelper}${camHelper}
 void main() {
   vec2 uv = (2.0 * gl_FragCoord.xy - u_resolution) / min(u_resolution.x, u_resolution.y);
   vec2 p = uv;
@@ -406,11 +459,11 @@ void main() {
   float mx = u_mouse.x;
   float my = u_mouse.y;
   float i = gl_FragCoord.x + gl_FragCoord.y * u_resolution.x;
-
+${motLine}
 ${body}
   outColor = vec4(color, ${feedbackAlpha});
 }
 `;
 
-  return { fragmentSource, mode, expression, paramNames, usesPrev: needsPrev };
+  return { fragmentSource, mode, expression, paramNames, usesPrev: needsPrev, usesCam: needsCam };
 }

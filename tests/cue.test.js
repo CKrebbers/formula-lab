@@ -112,7 +112,7 @@ describe('cue/program: hello', () => {
 describe('starters', () => {
   it('every starter parses, transpiles and has a usable coords/style', () => {
     expect(STARTERS.length).toBeGreaterThanOrEqual(3);
-    expect(STARTERS.length).toBeLessThanOrEqual(5);
+    expect(STARTERS.length).toBeLessThanOrEqual(6);
     for (const s of STARTERS) {
       const { ast, params } = extractParams(parse(s.source));
       expect(() => transpile(ast), s.id).not.toThrow();
@@ -125,6 +125,7 @@ describe('starters', () => {
     // the strip shows the range of the instrument, not five variations
     expect(STARTERS.some((s) => s.source.includes('prev('))).toBe(true);
     expect(STARTERS.some((s) => s.source.includes('band('))).toBe(true);
+    expect(STARTERS.some((s) => s.source.includes('cam('))).toBe(true);
   });
 
   it('a starter survives the snapshot and permalink round-trips', () => {

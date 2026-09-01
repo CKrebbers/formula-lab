@@ -157,4 +157,6 @@ export const FL = {
   shr: (a, b) => (i32(a) >> (clamp(b, 0, 31) | 0)),
   // no frame buffer exists at audio rate — prev() is 0 in this backend (ADR 001)
   prev: () => 0,
+  // the camera is a texture on the GPU; the audio backend hears none of it (ADR #41)
+  cam: () => 0,
 };

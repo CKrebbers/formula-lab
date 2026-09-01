@@ -11,14 +11,21 @@ function auto(overrides) {
 }
 
 describe('automate: modes', () => {
-  it('cycles off → sine → tri → walk → bass → mid → high → off', () => {
+  it('cycles off → sine → tri → walk → bass → mid → high → cam → off', () => {
     let mode = 'off';
     const seen = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 8; i++) {
       mode = nextMode(mode);
       seen.push(mode);
     }
-    expect(seen).toEqual(['sine', 'tri', 'walk', 'bass', 'mid', 'high', 'off']);
+    expect(seen).toEqual(['sine', 'tri', 'walk', 'bass', 'mid', 'high', 'cam', 'off']);
+  });
+
+  it('cam mode reads the camera frame like an audio band', () => {
+    const auto = { ...createAutomation(0.5, 0), mode: 'cam', depth: 1, rate: 0, curve: 0 };
+    const range = { min: 0, max: 1 };
+    expect(evaluate(auto, range, 0, null)).toBe(0.5); // no camera → rests at center
+    expect(evaluate(auto, range, 0, { cam: { level: 1, pulse: 0 } })).toBe(1);
   });
 
   it('de-syncs phases per param index', () => {
@@ -82,8 +89,8 @@ describe('automate: capture last take (gesture)', () => {
   });
 
   it("nextMode includes 'gesture' only when one exists", () => {
-    expect(nextMode('high', false)).toBe('off');
-    expect(nextMode('high', true)).toBe('gesture');
+    expect(nextMode('cam', false)).toBe('off');
+    expect(nextMode('cam', true)).toBe('gesture');
     expect(nextMode('gesture', true)).toBe('off');
   });
 });
