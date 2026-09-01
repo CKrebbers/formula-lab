@@ -1,9 +1,13 @@
 // Snapshot schema v1 (§4, frozen): create, validate, migrate.
 // No DOM dependency — testable in Node.
 
-export const SCHEMA_VERSION = 3; // v2: display style · v3: AV layer — scan
-// settings + stats.audio {rms, crest, flatness}, so presets record how
-// interesting image and sound are INDEPENDENTLY (ADR 001 phase 3)
+export const SCHEMA_VERSION = 4;
+// v2: display style · v3: AV layer — scan settings + stats.audio, so presets
+// record how interesting image and sound are INDEPENDENTLY (ADR 001 phase 3)
+// v4: stats.audio is measured at two points, { pre, post } (ADR #35) — `post`
+// alone grades the limiter, not the formula. v3 records kept their single
+// measurement as `post` with `pre: null`: it was never measured, and saying
+// so beats inventing it.
 
 export const COORD_NAMES = ['cartesian', 'polar', 'toroidal'];
 export const ORIGINS = ['typed', 'mutate', 'crossover', 'sample', 'llm', 'family'];
@@ -14,7 +18,9 @@ const EMPTY_STATS = {
   color_variance: 0.0,
   symmetry: 0.0,
   spectral_flatness: 0.0,
-  audio: null, // filled at save time: { rms, crest, flatness } — or null
+  // filled at save time: { pre, post } measurements — or null when the audio
+  // path never ran (see computeAudioStats)
+  audio: null,
 };
 
 /**
@@ -86,6 +92,13 @@ export function validateSnapshot(snap) {
   if (typeof snap.smooth !== 'boolean') return fail('smooth must be a boolean');
   if (![0, 1, 2].includes(snap.tone)) return fail('tone must be 0 (clamp), 1 (wrap) or 2 (fold)');
   if (typeof snap.stats !== 'object' || snap.stats === null) return fail('Missing stats');
+  const audio = snap.stats.audio;
+  if (audio !== null && audio !== undefined) {
+    if (typeof audio !== 'object') return fail('stats.audio must be null or an object');
+    if (!('pre' in audio) || !('post' in audio)) {
+      return fail('stats.audio must record both pre and post measurements (schema 4)');
+    }
+  }
   if (snap.scan !== null && snap.scan !== undefined) {
     if (typeof snap.scan !== 'object') return fail('scan must be null or an object');
     if (typeof snap.scan.path !== 'string' || !Number.isFinite(snap.scan.freq)) {
@@ -119,6 +132,14 @@ export function migrate(snap) {
       scan: null,
       stats: { ...snap.stats, audio: snap.stats?.audio ?? null },
     });
+  }
+  if (snap.schema === 3) {
+    // v3 → v4: the single measurement was taken after the limiter. Keep it as
+    // `post` and leave `pre` null rather than back-filling a number that was
+    // never measured.
+    const old = snap.stats?.audio ?? null;
+    const audio = old && !('post' in old) ? { pre: null, post: old } : old;
+    return migrate({ ...snap, schema: 4, stats: { ...snap.stats, audio } });
   }
   throw new Error(`No migration path from schema ${snap.schema}`);
 }

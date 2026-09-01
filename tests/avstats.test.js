@@ -9,7 +9,7 @@ import { compileFormula } from '../src/core/js.js';
 import { FL } from '../src/core/jsruntime.js';
 import { SynthCore, scanXY, SCAN_PATHS } from '../src/audio/dsp.js';
 import { computeAudioStats } from '../src/audio/stats.js';
-import { createSnapshot, migrate, validateSnapshot } from '../src/store/snapshot.js';
+import { createSnapshot, validateSnapshot, SCHEMA_VERSION } from '../src/store/snapshot.js';
 
 const SR = 48000;
 
@@ -79,57 +79,101 @@ describe('scan paths', () => {
 });
 
 describe('computeAudioStats', () => {
-  it('a pure tone: low flatness, modest crest; noise: high flatness', () => {
-    const tone = extractParams(parse('sin(440.0 * 6.283 * t)'));
-    const sTone = computeAudioStats(tone.ast, tone.params, null);
-    expect(sTone.rms).toBeGreaterThan(0.1);
-    expect(sTone.flatness).toBeLessThan(0.01);
-    expect(sTone.crest).toBeGreaterThan(1);
-    expect(sTone.crest).toBeLessThan(2.5);
+  const statsFor = (source, scan = null) => {
+    const { ast, params } = extractParams(parse(source));
+    return computeAudioStats(ast, params, scan);
+  };
 
-    const noisy = extractParams(parse('hash(floor(t * 8000.0), 1.0) * 2.0 - 1.0'));
-    const sNoise = computeAudioStats(noisy.ast, noisy.params, null);
-    expect(sNoise.flatness).toBeGreaterThan(sTone.flatness * 10);
+  it('a pure tone: low flatness, crest √2; noise: far higher flatness', () => {
+    const tone = statsFor('sin(440.0 * 6.283 * t)');
+    expect(tone.pre.rms).toBeGreaterThan(0.1);
+    expect(tone.pre.flatness).toBeLessThan(0.01);
+    expect(tone.pre.crest).toBeCloseTo(Math.SQRT2, 2); // a sine, exactly
+
+    const noise = statsFor('hash(floor(t * 8000.0), 1.0) * 2.0 - 1.0');
+    expect(noise.pre.flatness).toBeGreaterThan(tone.pre.flatness * 10);
+  });
+
+  // The reason pre exists (ADR #35). Measured: pre.rms 0.000706 vs 706.2 for
+  // the same formula ×1e-3 and ×1e3, while post.rms sits at 0.33 / 0.49.
+  it('post erases the formula\'s level; pre keeps it', () => {
+    const quiet = statsFor('sin(440.0 * 6.283 * t) * 0.001');
+    const loud = statsFor('sin(440.0 * 6.283 * t) * 1000.0');
+
+    expect(loud.pre.rms / quiet.pre.rms).toBeGreaterThan(9e5);
+    expect(loud.pre.rms / quiet.pre.rms).toBeLessThan(1.1e6);
+    // the normalizer pins both to the same neighbourhood
+    for (const s of [quiet, loud]) {
+      expect(s.post.rms).toBeGreaterThan(0.2);
+      expect(s.post.rms).toBeLessThan(0.6);
+    }
+  });
+
+  // The sharpest version of the same finding: post grades the limiter.
+  it('pre.crest is level-invariant, post.crest is not', () => {
+    const quiet = statsFor('sin(440.0 * 6.283 * t) * 0.001');
+    const loud = statsFor('sin(440.0 * 6.283 * t) * 1000.0');
+
+    // same waveform, so the same crest factor — whatever its amplitude
+    expect(loud.pre.crest).toBeCloseTo(quiet.pre.crest, 4);
+    // measured: 1.39 quiet vs 2.05 loud — the limiter, not the formula
+    expect(Math.abs(loud.post.crest - quiet.post.crest)).toBeGreaterThan(0.3);
+  });
+
+  it('crest separates spiky from smooth', () => {
+    const sine = statsFor('sin(220.0 * 6.283 * t)');
+    const pulse = statsFor('pow(abs(sin(200.0 * 3.14159 * t)), 32.0)');
+    expect(pulse.pre.crest).toBeGreaterThan(sine.pre.crest * 1.8);
   });
 
   it('a field formula gets stats through its scan settings', () => {
-    const field = extractParams(parse('worley(x * 4.0, y * 4.0) * 2.0 - 1.0'));
-    const s = computeAudioStats(field.ast, field.params, { path: 'spiral', freq: 220 });
-    expect(s.rms).toBeGreaterThan(0.05);
-    expect(Number.isFinite(s.crest)).toBe(true);
-    expect(s.flatness).toBeGreaterThan(0);
+    const s = statsFor('worley(x * 4.0, y * 4.0) * 2.0 - 1.0', { path: 'spiral', freq: 220 });
+    for (const side of [s.pre, s.post]) {
+      expect(side.rms).toBeGreaterThan(0.05);
+      expect(Number.isFinite(side.crest)).toBe(true);
+      expect(side.flatness).toBeGreaterThan(0);
+    }
   });
 
   it('is deterministic', () => {
-    const f = extractParams(parse('fract(t * 220.0) * 2.0 - 1.0'));
-    expect(computeAudioStats(f.ast, f.params, null))
-      .toEqual(computeAudioStats(f.ast, f.params, null));
+    expect(statsFor('fract(t * 220.0) * 2.0 - 1.0'))
+      .toEqual(statsFor('fract(t * 220.0) * 2.0 - 1.0'));
+  });
+
+  it('the tap is opt-in: the worklet path allocates nothing for it', () => {
+    const { ast, params } = extractParams(parse('sin(440.0 * 6.283 * t)'));
+    const core = new SynthCore(SR, { FL });
+    core.setFormula(compileFormula(ast));
+    core.setParams(params);
+    render(core, 0.05);
+    expect(core.tapL).toBeUndefined();
   });
 });
 
-describe('snapshot schema v3', () => {
-  it('createSnapshot carries scan and stats.audio', () => {
+describe('snapshot carries the audio measurement', () => {
+  it('createSnapshot carries scan and an empty stats.audio', () => {
     const ast = parse('sin(x + t)');
     const snap = createSnapshot({ source: 'sin(x + t)', ast, scan: { path: 'line', freq: 110 } });
-    expect(snap.schema).toBe(3);
-    expect(snap.scan).toEqual({ path: 'line', freq: 110 });
+    expect(snap.schema).toBe(SCHEMA_VERSION);
+    expect(snap.scan.path).toBe('line');
     expect(snap.stats.audio).toBeNull();
     expect(validateSnapshot(snap).ok).toBe(true);
   });
 
-  it('migrates v2 (and v1) snapshots forward', () => {
+  it('a measured snapshot validates and keeps both sides', () => {
+    const ast = parse('sin(440.0 * 6.283 * t)');
+    const { ast: paramAst, params } = extractParams(parse('sin(440.0 * 6.283 * t)'));
+    const snap = createSnapshot({ source: 'sin(440.0 * 6.283 * t)', ast });
+    snap.stats.audio = computeAudioStats(paramAst, params, null);
+    expect(snap.stats.audio.pre.crest).toBeCloseTo(Math.SQRT2, 2);
+    expect(snap.stats.audio.post.rms).toBeGreaterThan(0);
+    expect(validateSnapshot(snap).ok).toBe(true);
+  });
+
+  it('rejects a stats.audio that only records one side', () => {
     const ast = parse('sin(x + t)');
-    const v2 = {
-      ...createSnapshot({ source: 'sin(x + t)', ast }),
-      schema: 2,
-    };
-    delete v2.scan;
-    v2.stats = { entropy: 0.5, edge_density: 0.1, color_variance: 0.02, symmetry: 0.3, spectral_flatness: 0.4 };
-    const v3 = migrate(v2);
-    expect(v3.schema).toBe(3);
-    expect(v3.scan).toBeNull();
-    expect(v3.stats.audio).toBeNull();
-    expect(v3.stats.entropy).toBe(0.5);
-    expect(validateSnapshot(v3).ok).toBe(true);
+    const snap = createSnapshot({ source: 'sin(x + t)', ast });
+    snap.stats.audio = { rms: 0.3, crest: 1.4, flatness: 1e-9 }; // the v3 shape
+    expect(validateSnapshot(snap).ok).toBe(false);
   });
 });

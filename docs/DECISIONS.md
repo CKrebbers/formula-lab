@@ -223,6 +223,23 @@
     parity spec, where the GPU is a genuinely independent implementation. The
     offset mutation surviving 3 formulas is the same effect in miniature: the
     tolerance is relative, so large-output formulas tolerate 1e-3 by design.
+35. **stats.audio is measured twice: pre-normalizer and post-limiter
+    (schema 4).** The single measurement graded the output chain, not the
+    formula — which matters because the zero-player's novelty will rank on it.
+    `SynthCore.enableTap()` taps after the NaN guard and the DC chain, before
+    the normalizer and tanh, through its own decimation filter so both sides
+    are at the output rate and directly comparable. Opt-in: the worklet
+    allocates nothing for a measurement it never reads (asserted by a test).
+    Measured on the same formula at ×0.001 and ×1000:
+    - `pre.rms` 0.000706 vs 706.2 — the formula's own level, six orders apart.
+    - `post.rms` 0.333 vs 0.488 — the normalizer pins everything to the target.
+    - `pre.crest` 1.41394 for both (√2, a sine, level-invariant and correct).
+    - `post.crest` 1.39 vs 2.05 — the SAME waveform grades differently purely
+      by amplitude. That is the limiter talking, and it is why `pre` exists.
+    Flatness is computed on the rms-normalized signal so it never depends on
+    level either. Done now, before a preset library exists that would need
+    migrating: v3 records keep their single measurement as `post` with
+    `pre: null` (never measured — say so rather than back-fill).
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

@@ -255,6 +255,9 @@ export class SynthCore {
     this.dcR2 = new DCBlocker(this.osRate);
     this.firL = new Decimator(oversample);
     this.firR = new Decimator(oversample);
+    // optional analysis tap, pre-normalizer / pre-limiter (ADR #35). Off by
+    // default: the worklet must not pay for a measurement it never reads.
+    this.tap = null;
     this.peak = 1e-4;
     this.peakRelease = Math.exp(-1 / (3 * this.osRate)); // τ ≈ 3 s
     this.gain = 1;
@@ -280,6 +283,25 @@ export class SynthCore {
     if (SCAN_PATHS.includes(path)) this.scan.path = path;
     if (Number.isFinite(freq)) this.scan.freq = Math.min(4000, Math.max(1, freq));
   }
+
+  /**
+   * Tap the signal where the formula still IS the formula: after the NaN
+   * guard and the DC chain, before the normalizer and the tanh limiter.
+   * It runs through its own decimation filter, so tap and output are at the
+   * same rate and their statistics are directly comparable (ADR #35).
+   * After each process(), `tapL` / `tapR` hold that block's tapped samples.
+   */
+  enableTap() {
+    this.tap = {
+      firL: new Decimator(this.os),
+      firR: new Decimator(this.os),
+      L: null,
+      R: null,
+    };
+  }
+
+  get tapL() { return this.tap?.L; }
+  get tapR() { return this.tap?.R; }
 
   setParams(params) {
     this.paramTargets = params;
@@ -331,6 +353,11 @@ export class SynthCore {
       return;
     }
     const env = this.env;
+    const tap = this.tap;
+    if (tap && (!tap.L || tap.L.length !== n)) {
+      tap.L = new Float64Array(n); // pre-normalizer levels are unbounded: f64
+      tap.R = new Float64Array(n);
+    }
     for (let i = 0; i < n; i++) {
       // params glide toward their targets (~10 ms) so a slider jump never clicks
       const keys = this.paramKeys;
@@ -372,6 +399,10 @@ export class SynthCore {
         // 2. DC blockers — arbitrary formulas are not centered on zero
         l = this.dcL2.step(this.dcL.step(l));
         r = this.dcR2.step(this.dcR.step(r));
+        if (tap) {
+          tap.firL.push(l);
+          tap.firR.push(r);
+        }
         // 3. normalize via running peak with slow release
         const a = Math.max(Math.abs(l), Math.abs(r));
         this.peak = Math.max(a, this.peak * this.peakRelease, 1e-4);
@@ -398,6 +429,10 @@ export class SynthCore {
       const yr = this.firR.read();
       outL[i] = yl > 1 ? 1 : yl < -1 ? -1 : yl;
       outR[i] = yr > 1 ? 1 : yr < -1 ? -1 : yr;
+      if (tap) {
+        tap.L[i] = tap.firL.read();
+        tap.R[i] = tap.firR.read();
+      }
       this.frame++;
     }
   }
