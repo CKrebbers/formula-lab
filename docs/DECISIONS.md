@@ -240,6 +240,22 @@
     level either. Done now, before a preset library exists that would need
     migrating: v3 records keep their single measurement as `post` with
     `pre: null` (never measured — say so rather than back-fill).
+36. **A migrated scan default carries its provenance, and migration is tested
+    against frozen fixtures.** v2 presets predate field-formula sound, so no
+    scan was ever chosen for them. They now get `DEFAULT_SCAN`
+    (lissajous, 110 Hz) tagged `origin: 'schema-v2-default'` instead of a
+    silent `null`; a session's own setting is tagged `origin: 'session'`, and
+    `validateSnapshot` refuses a scan that will not say which it is. It matters
+    because stats.audio depends on the scan: comparing a measured preset
+    against one carrying a migration's guess, with no way to tell them apart,
+    would quietly corrupt any ranking built on it. A v3 scan WAS a live
+    setting, so v3→v4 tags it `session`.
+    Fixtures (`tests/fixtures/snapshot-v{1,2,3}.json`) are frozen records of
+    what each schema actually looked like — round-tripping a record the current
+    code wrote proves nothing about one written months ago. The suite asserts
+    the fixture is genuinely old (no `scan` key at all in v2), that every v2
+    field survives untouched, that no audio measurement is invented, and that
+    an Archive holding all three loads them migrated and valid.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

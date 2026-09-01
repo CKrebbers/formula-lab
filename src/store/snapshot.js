@@ -12,6 +12,16 @@ export const SCHEMA_VERSION = 4;
 export const COORD_NAMES = ['cartesian', 'polar', 'toroidal'];
 export const ORIGINS = ['typed', 'mutate', 'crossover', 'sample', 'llm', 'family'];
 
+/**
+ * The documented scan default (ADR #36). Snapshots older than schema 3 were
+ * saved before field formulas had sound, so no scan was ever chosen for them.
+ * They are given THIS, tagged with where it came from: a reader must be able
+ * to tell a migration's guess from what the user actually set, especially
+ * once stats.audio is compared across presets.
+ */
+export const DEFAULT_SCAN = { path: 'lissajous', freq: 110 };
+export const SCAN_ORIGINS = ['session', 'schema-v2-default'];
+
 const EMPTY_STATS = {
   entropy: 0.0,
   edge_density: 0.0,
@@ -60,7 +70,9 @@ export function createSnapshot({
     palette,
     smooth,
     tone,
-    scan: scan ? { ...scan } : null,
+    // a scan the session actually chose is tagged as such, so it can never be
+    // confused with a migration default (ADR #36)
+    scan: scan ? { origin: 'session', ...scan } : null,
     seed,
     time,
     stats: { ...EMPTY_STATS },
@@ -104,6 +116,9 @@ export function validateSnapshot(snap) {
     if (typeof snap.scan.path !== 'string' || !Number.isFinite(snap.scan.freq)) {
       return fail('scan needs a path string and a finite freq');
     }
+    if (!SCAN_ORIGINS.includes(snap.scan.origin)) {
+      return fail(`scan.origin must say where it came from (${SCAN_ORIGINS.join(' | ')})`);
+    }
   }
   return { ok: true };
 }
@@ -125,11 +140,13 @@ export function migrate(snap) {
     return migrate({ ...snap, schema: 2, palette: 0, smooth: false, tone: 0 });
   }
   if (snap.schema === 2) {
-    // v2 → v3: AV layer — no scan recorded, no audio stats measured yet
+    // v2 → v3: the AV layer did not exist, so this preset never chose a scan.
+    // It gets the documented default, tagged with that fact (ADR #36), and no
+    // audio stats: nothing was ever measured.
     return migrate({
       ...snap,
       schema: 3,
-      scan: null,
+      scan: { ...DEFAULT_SCAN, origin: 'schema-v2-default' },
       stats: { ...snap.stats, audio: snap.stats?.audio ?? null },
     });
   }
@@ -139,7 +156,10 @@ export function migrate(snap) {
     // never measured.
     const old = snap.stats?.audio ?? null;
     const audio = old && !('post' in old) ? { pre: null, post: old } : old;
-    return migrate({ ...snap, schema: 4, stats: { ...snap.stats, audio } });
+    // a v3 scan was the session's live setting, so it is tagged as such —
+    // unlike the v2 default, which nobody chose
+    const scan = snap.scan ? { origin: 'session', ...snap.scan } : snap.scan ?? null;
+    return migrate({ ...snap, schema: 4, scan, stats: { ...snap.stats, audio } });
   }
   throw new Error(`No migration path from schema ${snap.schema}`);
 }

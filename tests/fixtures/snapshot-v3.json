@@ -1,0 +1,96 @@
+{
+  "schema": 3,
+  "id": "8f2a1c74-0000-4000-8000-000000000003",
+  "created": "2026-08-31T21:14:07.412Z",
+  "parent_ids": [],
+  "origin": "family",
+  "operator": null,
+  "family": "field.ripple",
+  "formula": {
+    "source": "sin(x * 4.0 + t) * cos(y * 3.0)",
+    "ast": {
+      "type": "bin",
+      "op": "*",
+      "left": {
+        "type": "call",
+        "name": "sin",
+        "args": [
+          {
+            "type": "bin",
+            "op": "+",
+            "left": {
+              "type": "bin",
+              "op": "*",
+              "left": {
+                "type": "var",
+                "name": "x"
+              },
+              "right": {
+                "type": "num",
+                "value": 4
+              }
+            },
+            "right": {
+              "type": "var",
+              "name": "t"
+            }
+          }
+        ]
+      },
+      "right": {
+        "type": "call",
+        "name": "cos",
+        "args": [
+          {
+            "type": "bin",
+            "op": "*",
+            "left": {
+              "type": "var",
+              "name": "y"
+            },
+            "right": {
+              "type": "num",
+              "value": 3
+            }
+          }
+        ]
+      }
+    }
+  },
+  "params": {
+    "a": 4,
+    "b": 3
+  },
+  "locks": {
+    "a": true,
+    "b": false
+  },
+  "coords": "polar",
+  "seed": 1174405120,
+  "time": 3.25,
+  "stats": {
+    "entropy": 0.62,
+    "edge_density": 0.31,
+    "color_variance": 0.048,
+    "symmetry": 0.77,
+    "spectral_flatness": 0.19,
+    "audio": {
+      "rms": 0.2009,
+      "crest": 2.2808,
+      "flatness": 1e-8
+    }
+  },
+  "thumb": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "tags": [
+    "ripple"
+  ],
+  "rating": 4,
+  "notes": "kept for the polar bands",
+  "palette": 1,
+  "smooth": false,
+  "tone": 0,
+  "scan": {
+    "path": "spiral",
+    "freq": 220
+  }
+}
