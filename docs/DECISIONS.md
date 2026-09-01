@@ -205,6 +205,24 @@
     - Chrome's own `AudioContext.renderCapacity` was absent in this build
       (`underrunRatio` null), so it corroborates nothing here; the test reads it
       when present but never depends on it.
+34. **The parity harness is itself tested, by mutation.** A green suite claims
+    nothing until it can be made to fail. `tests/mutation.test.js` rewrites
+    `core/js.js` three ways (sin→cos in the emitted call name, a 1e-3 offset on
+    the emitted output, `*` emitted as `+`), writes each mutant beside the
+    original — vite cannot resolve a `file://` URL outside the project root
+    when the path contains spaces, so a sibling is the only clean way — and
+    asserts the parity check catches it. Kill rates: sin→cos 4/25 (exactly the
+    4 corpus formulas that use `sin`), offset 22/25, operator swap 21/25. No
+    mutant survived, so no corpus gap to fill. A CONTROL loads the unmutated
+    emitter through the same machinery and must pass, otherwise a broken loader
+    would "kill" every mutant for the wrong reason.
+    **Documented blind spot, asserted as a test:** emitJS and the reference
+    interpreter both call into `FL`, so a mutation *inside* jsruntime.js moves
+    both sides together and is invisible here (the test proves it: FL.sin→cos
+    yields zero parity failures). That gap is covered by the browser GLSL
+    parity spec, where the GPU is a genuinely independent implementation. The
+    offset mutation surviving 3 formulas is the same effect in miniature: the
+    tolerance is relative, so large-output formulas tolerate 1e-3 by design.
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

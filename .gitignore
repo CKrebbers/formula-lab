@@ -2,3 +2,6 @@ node_modules/
 dist/
 .DS_Store
 av-patch/
+
+# transient mutation-test artifacts (tests/mutation.test.js cleans up itself)
+src/core/*.__mutant_*__.js
