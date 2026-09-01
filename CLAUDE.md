@@ -52,8 +52,12 @@ AND SINCE THEN (A1, ADR #42): **the zero-player ranks on sound too** —
 (image novelty + audio novelty) / 2, measured off-thread by the same
 `computeAudioStats` in an inline worker. Unheard formulas (prev/dx/dy/cam,
 or unmeasured) are judged on image alone.
-Counts as of 2026-09-01: 383 unit tests (30 files) + 29 browser tests
-(Playwright, `npm run test:browser`), single-file build ~186 kB.
+AND SINCE THEN (D2 rest, ADR #43): **a formula can read its own previous
+frame's stats** — `s_ent`, `s_sym` (§7 entropy/symmetry, 0..1), measured on
+the GPU every frame at 128² by a probe pass in the renderer (`render/self.js`)
+and fed back as uniforms. Family `self.homeostat` is dead without them.
+Counts as of 2026-09-01: 395 unit tests (31 files) + 32 browser tests
+(Playwright, `npm run test:browser`), single-file build ~190 kB.
 
 Built in one marathon session (24 commits, ~5,500 lines, 201 vitest tests green,
 single-file build ~94 kB). v1, v2 and v3's zero-player are DONE, plus a large
@@ -117,7 +121,8 @@ src/
     jsruntime.js   # FL: JS mirror of the fl_* GLSL helpers (float32-emulated hash)
     interp.js      # reference AST evaluator — the leg the parity tests stand on
   render/
-    gl.js tile.js thumbs.js
+    gl.js tile.js thumbs.js feedback.js
+    self.js        # the s_ent / s_sym probe: 128² raw draw + readback per frame (ADR #43)
   search/
     mutate.js crossover.js walk.js sample.js filter.js fft.js novelty.js elites.js explore.js
     avnovelty.js   # stats.audio.pre → descriptor; fitness = (img + snd) / 2 (ADR #42)
@@ -167,7 +172,9 @@ Hazard: never ^ / sqrt / log on possibly-negative values (undefined on GPU) —
 use abs() or length(a,b).
 Shipped since: prev(x,y) (feedback buffer, arity 2); cam(x,y) (camera
 luminance at formula coords, mirrored, -1..1, 0 while the camera is off) and
-the variable mot (camera motion 0..1) — ADR #41. Reserved for later:
+the variable mot (camera motion 0..1) — ADR #41; s_ent / s_sym (the previous
+frame's own §7 entropy and symmetry, 0..1, black frame = 0 / 1) — ADR #43.
+Reserved for later:
 in1..in4 (live inputs).
 IN AUDIO: prev(), dx and dy evaluate to 0 (no frame buffer at 48 kHz, no screen
 pixel) — the emitter reports them as `silent`, the panel says so per formula,

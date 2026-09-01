@@ -7,7 +7,8 @@ import { Renderer } from './gl.js';
 // the capture's own t before reading: reset → WARM_FRAMES draws → capture.
 // Deterministic (every call starts from black) and cheap at 128², and it keeps
 // trail formulas visible in sheets, thumbs and the §7 stats instead of
-// evaluating as flat black. See DECISIONS.md ADR #24.
+// evaluating as flat black. See DECISIONS.md ADR #24. Formulas that read
+// s_ent / s_sym warm the same way: their loop closes WARM_FRAMES times.
 const WARM_FRAMES = 6;
 
 export class TileRenderer {
@@ -21,9 +22,9 @@ export class TileRenderer {
     this.renderer.setFragmentShader(fragmentSource, paramNames, usesPrev);
   }
 
-  /** Render once, warming the feedback buffer first when the formula needs it. */
+  /** Render once, warming the frame-to-frame memory first when the formula has any. */
   renderSettled(state) {
-    if (this.renderer.usesPrev) {
+    if (this.renderer.hasMemory) {
       this.renderer.resetFeedback();
       for (let i = 0; i < WARM_FRAMES; i++) this.renderer.render(state);
     }

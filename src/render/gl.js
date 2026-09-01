@@ -2,6 +2,7 @@
 // Target: WebGL2 only (2014 Radeon R9 M295X must cope). No WebGPU.
 
 import { FeedbackBuffer } from './feedback.js';
+import { SelfProbe, PROBE_SIZE } from './self.js';
 
 const VERTEX_SOURCE = `#version 300 es
 void main() {
@@ -43,6 +44,8 @@ export class Renderer {
     this.vao = gl.createVertexArray();
     this.usesPrev = false;
     this.feedback = null; // allocated lazily, only for formulas that use prev()
+    this.usesSelf = false;
+    this.self = null;     // the s_ent / s_sym probe, only for formulas that read them (ADR #43)
     this.camSource = null;   // <video> from input/camera.js, or null
     this.camTexture = null;  // lazily: 1×1 mid-gray until a frame is uploaded
     this.camUploadedTime = -1;
@@ -82,16 +85,35 @@ export class Renderer {
       cam: gl.getUniformLocation(program, 'u_cam'),
       camFit: gl.getUniformLocation(program, 'u_cam_fit'),
       mot: gl.getUniformLocation(program, 'u_mot'),
+      sEnt: gl.getUniformLocation(program, 'u_s_ent'),
+      sSym: gl.getUniformLocation(program, 'u_s_sym'),
     };
+    // both are declared together, but the compiler may drop the unread one
+    this.usesSelf = !!(this.uniforms.sEnt || this.uniforms.sSym);
+    if (this.usesSelf) this.self ??= new SelfProbe(gl);
     this.paramLocations = {};
     for (const name of paramNames) {
       this.paramLocations[name] = gl.getUniformLocation(program, `u_${name}`);
     }
   }
 
-  /** Wipe the previous-frame buffer to black (formula change, crossfade start). */
+  /**
+   * Wipe the frame-to-frame memory: the previous-frame buffer to black and
+   * the self-stats to the black frame's (formula change, crossfade start).
+   */
   resetFeedback() {
     this.feedback?.reset();
+    this.self?.reset();
+  }
+
+  /** Does the next frame depend on the last one (prev() or s_ent / s_sym)? Tiles warm these. */
+  get hasMemory() {
+    return this.usesPrev || this.usesSelf;
+  }
+
+  /** The stats the next draw reads as s_ent / s_sym ({} when the formula does not). */
+  get selfStats() {
+    return this.usesSelf && this.self ? this.self.values : {};
   }
 
   /** Resize the drawing buffer to match CSS size × devicePixelRatio (capped for the 2014 GPU). */
@@ -133,19 +155,43 @@ export class Renderer {
     }
     gl.bindVertexArray(this.vao);
 
+    if (this.usesPrev) {
+      // feedback path: sample the previous frame (bound before the probe, so
+      // both draws read the same one). A size change reallocates = implicit reset.
+      this.feedback ??= new FeedbackBuffer(gl);
+      this.feedback.ensureSize(this.canvas.width, this.canvas.height);
+      this.feedback.bindPrevious(0);
+      gl.uniform1i(this.uniforms.prev, 0);
+    }
+    if (this.usesSelf) this.measureSelf(state);
+
     if (!this.usesPrev) {
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       return;
     }
-    // feedback path: draw offscreen while sampling the previous frame, then
-    // blit to the canvas and swap. A size change reallocates = implicit reset.
-    this.feedback ??= new FeedbackBuffer(gl);
-    this.feedback.ensureSize(this.canvas.width, this.canvas.height);
-    this.feedback.bindPrevious(0);
-    gl.uniform1i(this.uniforms.prev, 0);
+    // draw offscreen, blit to the canvas, swap
     this.feedback.bindWrite();
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     this.feedback.present();
+  }
+
+  /**
+   * s_ent / s_sym (ADR #43): upload the stats measured last frame, then draw
+   * this frame once more at 128² palette-free into the probe and measure it
+   * for the next frame. Same program, same inputs, same previous frame as the
+   * main draw that follows — the loop closes on the frame that is shown.
+   */
+  measureSelf(state) {
+    const gl = this.gl;
+    const probe = this.self;
+    if (this.uniforms.sEnt) gl.uniform1f(this.uniforms.sEnt, probe.values.s_ent);
+    if (this.uniforms.sSym) gl.uniform1f(this.uniforms.sSym, probe.values.s_sym);
+    gl.uniform2f(this.uniforms.resolution, PROBE_SIZE, PROBE_SIZE);
+    gl.uniform1i(this.uniforms.raw, 1);
+    probe.measure(() => gl.drawArrays(gl.TRIANGLES, 0, 3));
+    gl.uniform2f(this.uniforms.resolution, this.canvas.width, this.canvas.height);
+    gl.uniform1i(this.uniforms.raw, state.raw ? 1 : 0);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
   }
 
   /**

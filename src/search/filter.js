@@ -109,6 +109,19 @@ export function computeStats(pixels, w, h, thresholds = THRESHOLDS) {
   };
 }
 
+/**
+ * The two stats a formula can read back as s_ent / s_sym (ADR #43): the same
+ * entropy and symmetry as computeStats, minus the FFT and the rest — cheap
+ * enough for the renderer to run on every frame at 128².
+ */
+export function computeSelfStats(pixels, w, h, thresholds = THRESHOLDS) {
+  const lum = luminance(pixels, w, h);
+  return {
+    entropy: entropyOf(lum, thresholds.histogramBins),
+    symmetry: symmetryOf(lum, w, h),
+  };
+}
+
 /** §4: stats are the average of the t=0 and t=1 renders. */
 export function averageStats(a, b) {
   const out = {};

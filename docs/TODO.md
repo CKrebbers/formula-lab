@@ -63,13 +63,11 @@ palettes + tone mapping ✓. Ordered by agreed priority; sizes are sessions.
 - **D1 input variables** — `in1..in4` in the formula whitelist + routing
   table: a finger/CC/remote slider becomes a term in the math. Highest
   symbiosis leverage. (1)
-- **D2 feedback + self-stats** — ~~`prev(x,y)` ping-pong buffer~~ ✓ SHIPPED
-  2026-09-01 (whitelisted, continuous scalar via alpha, resets on formula
-  change/resize/crossfade, tiles warm 6 frames — ADR #22-25). REMAINING: expose
-  previous-frame entropy/symmetry as `s_ent`/`s_sym` so images regulate
-  themselves (reaction-diffusion-like behaviour without simulating chemistry).
-  Sketch: the §7 stats already run cheaply at 128²; feed them in as two more
-  uniforms and whitelist them as variables. (~1 session)
+- ~~**D2 feedback + self-stats**~~ ✓ SHIPPED 2026-09-01. `prev(x,y)`
+  ping-pong buffer (ADR #22-25) and `s_ent`/`s_sym` — previous-frame entropy
+  and symmetry, measured on the GPU each frame at 128² by a probe pass, fed
+  back as uniforms (ADR #43). Family `self.homeostat` lives on the loop.
+  Left for later: edge density / flatness as variables, async readback.
 - **D3 implicit preference learning** — dwell time & touch density as
   implicit rating; boosts elites cells; idle = machine takes over. Absorbs
   the "learn my preferences" wish. (1)

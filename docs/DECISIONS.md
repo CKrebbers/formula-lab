@@ -385,3 +385,34 @@
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate
     sines — deterministic, no RNG state. Phases de-synced per param via golden-ratio
     steps. Lock pauses automation. Not MIDI/audio/OSC — those stay v4 (§9).
+43. **A formula can read its own previous frame's §7 stats: `s_ent`, `s_sym`.**
+    Two whitelisted variables, the entropy and mirror symmetry of the LAST frame
+    in §7 units (0..1, 64-bin histogram, `computeSelfStats` is the same code as
+    `computeStats` minus the FFT). They are NOT taken from the main draw: the
+    renderer draws the same program once more per frame at 128², palette-free
+    (`u_raw`), into a probe FBO (`render/self.js`), reads the 64 kB back and
+    measures — the §7 measurement, on the live frame, every frame. Why not the
+    main canvas: it holds the palette-mapped color (entropy capped at 1/3 by the
+    LUT, ADR #22 all over again) and reading a full-resolution frame back would
+    stall the frame. Why before the main draw: the readback then waits only on
+    the 128² draw. The probe reads the same `u_prev` as the main draw (bound
+    before it, swapped after), so both see the same previous frame; the values
+    measured drive the NEXT frame — one frame of lag, like prev(). Before the
+    first measurement they hold the black frame's stats (entropy 0, symmetry
+    1), the frame prev() reads as -1; `resetFeedback()` restores those, so a
+    formula change, resize or crossfade restarts the loop. Uniforms exist only
+    when either variable is read; formulas without them compile to the same
+    shader as before, and `hasMemory` (prev or self) is what tiles warm for
+    (ADR #24 extended: the loop closes six times before a thumb or a §7 stat).
+    In audio the two ARE heard: the renderer's values ride the params message
+    like `mot` (ADR #41), the offline meter uses the black-frame defaults.
+    Mutation: `var_swap` lands on them at 15% so the zero-player can find loops
+    without being flooded by them. Measured on the CPU twin (interp + 8-bit
+    alpha emulation, `tests/self.test.js`) and on the GPU
+    (`tests/browser/self.spec.js`): the Homeostat family with t HELD keeps
+    changing (mean |Δ| ≈ 20/255 per frame, entropy hunting 0.82–0.95) and with
+    the two variables pinned to constants it converges to a static ring field
+    within 30 frames. Not done, deliberately: edge density / spectral flatness
+    (the FFT is too dear per frame), a non-square probe (the §7 tiles are
+    square, so the units match), async PBO readback (measure first: the 128²
+    draw is what the tiles already cost).

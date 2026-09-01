@@ -7,7 +7,7 @@
 // that already passed the parser/validator whitelist — the "never eval"
 // rule from §5 holds.
 
-import { validate } from './ast.js';
+import { validate, SELF_VARS } from './ast.js';
 import { outputMode } from './glsl.js';
 
 export class JsEmitError extends Error {}
@@ -20,7 +20,11 @@ function emit(node, isTopLevel = false) {
     }
     case 'var':
       // live inputs are optional in env: an older caller without them hears 0
-      return node.name === 'mot' ? '(env.mot || 0)' : `env.${node.name}`;
+      // (mot) or the black-frame stats (s_ent / s_sym — the renderer feeds the
+      // measured values through the params message, see ADR #43)
+      if (node.name === 'mot') return '(env.mot || 0)';
+      if (node.name in SELF_VARS) return `(env.${node.name} ?? ${SELF_VARS[node.name]})`;
+      return `env.${node.name}`;
     case 'param':
       return `(P.${node.name} ?? 0)`;
     case 'neg':

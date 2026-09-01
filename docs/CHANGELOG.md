@@ -2,6 +2,41 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-09-01 — D2 rest: the image reads its own stats (ADR #43)
+
+**status:** `s_ent` and `s_sym` are formula variables — the previous frame's
+§7 entropy and symmetry, measured on the GPU every frame at 128² by a probe
+pass in the renderer, fed back as two uniforms. Formulas that do not read
+them compile to the shader they did before. First family that is dead without
+them: **Homeostat** (`self.homeostat`).
+
+- **The measurement is the §7 measurement.** `computeSelfStats` in
+  `search/filter.js` is the entropy + symmetry of `computeStats`, no FFT;
+  `render/self.js` owns the probe FBO and runs it after every draw's uniforms
+  are set and before the main draw, so the readback waits on a 128² draw
+  only. Same program, same inputs, same `u_prev` as the frame that is shown.
+- **Language:** `s_ent`, `s_sym` whitelisted (`core/ast.js`, with
+  `SELF_VARS` = black-frame defaults 0 / 1), GLSL declares both uniforms when
+  either is read, the JS twin and the reference interpreter use the same
+  defaults, the AI pack prompt names them.
+- **Renderer:** `usesSelf` from the uniform locations, `hasMemory` (prev or
+  self) replaces `usesPrev` as the tile warm-up condition, `resetFeedback()`
+  also resets the stats, `selfStats` exposes them; `main.js` sends them to the
+  synth beside `mot`, `dsp.js` accepts them as live inputs.
+- **Search:** `var_swap` swaps into `s_ent`/`s_sym` at 15%.
+- **Homeostat:** ring frequency chases an entropy target through prev(), a
+  diagonal wave grows while the frame is more mirrored than 0.6. Tuned in a
+  CPU simulation of the loop (interp + 8-bit alpha), then confirmed on the
+  GPU: with t held it keeps moving (|Δ| ≈ 20/255 per frame), with the vars
+  pinned it is static within 30 frames.
+- Tests: +10 unit (`tests/self.test.js`, incl. the CPU loop simulation),
+  +3 browser (`tests/browser/self.spec.js`, real GL path).
+  395 unit + 32 browser (the audio golden gained the new family's fingerprint).
+
+**besluit:** D2 done. Deferred: edge density / spectral flatness as
+variables, a non-square probe, async readback, the zero-player showing loop
+formulas in the elites tooltip, `lap()`, `in1..in4`.
+
 ## 2026-09-01 — A1: the zero-player hears its discoveries (ADR #42)
 
 **status:** the payoff of ADR #35. `stats.audio.pre` is read at last: the

@@ -133,14 +133,19 @@ export function subtreeReplace(ast, rng) {
 }
 
 const SWAP_VARS = ['x', 'y', 't', 'r', 'th'];
+// the self-stats (ADR #43) enter at a lower rate: a term of s_ent / s_sym
+// closes a loop through the renderer, which is rarer than a spatial axis
+const SELF_SWAP_VARS = ['s_ent', 's_sym'];
+const SELF_SWAP_RATE = 0.15;
 
-/** 8. var_swap — swap one variable for another (x↔y, x↔t, x↔r, …). */
+/** 8. var_swap — swap one variable for another (x↔y, x↔t, x↔r, …, or into s_ent/s_sym). */
 export function varSwap(ast, rng) {
   const { root, slots } = prepare(ast);
   const vars = slots.filter((s) => s.node.type === 'var');
   if (!vars.length) return null;
   const slot = pick(rng, vars);
-  const others = SWAP_VARS.filter((v) => v !== slot.node.name);
+  const pool = rng() < SELF_SWAP_RATE ? SELF_SWAP_VARS : SWAP_VARS;
+  const others = pool.filter((v) => v !== slot.node.name);
   slot.node.name = pick(rng, others);
   return root;
 }

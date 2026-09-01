@@ -9,10 +9,14 @@ unfinished.
 - **AV layer shipped**: one AST → `emitGLSL` (image) and `emitJS` (sound).
   Phases 1–3 (parametric f(t), parity + test harness, field scan paths) plus a
   hardening pass. Plan: `docs/adr/001-av-layer.md`. Decisions: DECISIONS #31–#39.
-- **Tests**: 383 unit (30 files, `npm test`, ~1 min) + 29 browser
+- **D2 rest shipped (ADR #43)**: `s_ent` / `s_sym` — the previous frame's
+  §7 entropy/symmetry as variables, GPU-measured per frame by a 128² probe
+  pass (`render/self.js`). `resetFeedback()` resets them too; tiles warm on
+  `hasMemory`. Audio hears them through the params message like `mot`.
+- **Tests**: 395 unit (31 files, `npm test`, ~1 min) + 32 browser
   (4 specs, `npm run test:browser`, ~3 min, includes a 30 s realtime run and
   a zero-player run that waits for a real off-thread measurement).
-  Single-file build 186 kB (the inline stats worker is +33 kB of it).
+  Single-file build 190 kB (the inline stats worker is +33 kB of it).
 - **A1 shipped (ADR #42)**: the zero-player ranks on `stats.audio.pre` too.
   `search/avnovelty.js` (descriptor + fitness), `audio/stats-worker.js` +
   `audio/stats-remote.js` (the same `computeAudioStats`, off-thread, 6 s

@@ -165,6 +165,11 @@ export function usesMot(node) {
   return usesName(node, null, 'mot');
 }
 
+/** Does this AST read its own previous-frame stats (s_ent / s_sym)? Decides the probe pass. */
+export function usesSelf(node) {
+  return usesName(node, null, 's_ent') || usesName(node, null, 's_sym');
+}
+
 function usesName(node, callName, varName) {
   switch (node.type) {
     case 'var':
@@ -377,7 +382,7 @@ float fl_cam(float px, float py) {
 
 /**
  * Transpile a validated AST into a complete fragment shader.
- * Returns { fragmentSource, mode, expression, paramNames, usesPrev, usesCam }.
+ * Returns { fragmentSource, mode, expression, paramNames, usesPrev, usesCam, usesSelf }.
  */
 export function transpile(ast) {
   const check = validate(ast);
@@ -397,6 +402,12 @@ export function transpile(ast) {
   const needsMot = usesMot(ast);
   const motUniform = needsMot ? 'uniform float u_mot;\n' : '';
   const motLine = needsMot ? '  float mot = u_mot;\n' : '';
+  // s_ent / s_sym: previous-frame §7 stats fed back by the renderer's probe
+  // pass (render/self.js, ADR #43). Both declared when either is read; the
+  // shader without them is byte-identical to before.
+  const needsSelf = usesSelf(ast);
+  const selfUniform = needsSelf ? 'uniform float u_s_ent;\nuniform float u_s_sym;\n' : '';
+  const selfLine = needsSelf ? '  float s_ent = u_s_ent;\n  float s_sym = u_s_sym;\n' : '';
   // Alpha carries the continuous scalar for the next frame's prev() — clamped
   // because the buffer is 8-bit. vec3 mode has no scalar, so it feeds back its
   // own luminance. Without prev() the alpha stays 1.0 and the shader is
@@ -436,7 +447,7 @@ uniform int u_raw;     // 1 = skip the palette LUT (continuous grayscale, for st
 uniform int u_palette; // LUT index (see PALETTES)
 uniform int u_smooth;  // 0 = quantized pixel-art steps, 1 = interpolated
 uniform int u_tone;    // 0 = clamp, 1 = wrap, 2 = fold
-${prevUniform}${camUniform}${motUniform}${paramUniforms}
+${prevUniform}${camUniform}${motUniform}${selfUniform}${paramUniforms}
 out vec4 outColor;
 ${HELPERS}${prevHelper}${camHelper}
 void main() {
@@ -459,11 +470,14 @@ void main() {
   float mx = u_mouse.x;
   float my = u_mouse.y;
   float i = gl_FragCoord.x + gl_FragCoord.y * u_resolution.x;
-${motLine}
+${motLine}${selfLine}
 ${body}
   outColor = vec4(color, ${feedbackAlpha});
 }
 `;
 
-  return { fragmentSource, mode, expression, paramNames, usesPrev: needsPrev, usesCam: needsCam };
+  return {
+    fragmentSource, mode, expression, paramNames,
+    usesPrev: needsPrev, usesCam: needsCam, usesSelf: needsSelf,
+  };
 }

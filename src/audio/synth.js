@@ -170,6 +170,7 @@ export class AVSound {
     const env = {
       x, y, t, r, th,
       mx: mouse[0], my: mouse[1], mot: this.inputs?.mot ?? 0,
+      s_ent: this.inputs?.s_ent ?? 0, s_sym: this.inputs?.s_sym ?? 1,
       i: Math.floor(t * 48000), dx: 0, dy: 0, params,
     };
     try {

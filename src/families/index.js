@@ -19,6 +19,7 @@ import iterKaliset from './iter-kaliset.js';
 import iterOrbit from './iter-orbit.js';
 import bitBytebeat from './bit-bytebeat.js';
 import camMirror from './cam-mirror.js';
+import selfHomeostat from './self-homeostat.js';
 
 export const FAMILIES = [
   fieldTrig,
@@ -37,6 +38,7 @@ export const FAMILIES = [
   iterOrbit,
   bitBytebeat,
   camMirror,
+  selfHomeostat,
 ];
 
 /** Families that work without a live input — for random starts and the zero-player. */

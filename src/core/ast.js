@@ -14,7 +14,17 @@
 // dx/dy are the size of one screen pixel in the pre-remap uv space that x/y
 // are built from — the step you need for neighbour sampling and derivatives.
 // mot is the camera's motion amount (0..1), 0 while no camera runs (ADR #41).
-export const VARIABLES = ['x', 'y', 't', 'r', 'th', 'mx', 'my', 'i', 'dx', 'dy', 'mot'];
+// s_ent / s_sym are the PREVIOUS frame's §7 entropy and symmetry, measured on
+// a 128² palette-free render of this very formula (ADR #43) — the image can
+// read how busy / how mirrored it was and damp or excite itself.
+export const VARIABLES = ['x', 'y', 't', 'r', 'th', 'mx', 'my', 'i', 'dx', 'dy', 'mot', 's_ent', 's_sym'];
+
+/**
+ * Self-stats variables and the value each holds before the first measurement:
+ * the stats of a black frame (entropy 0, symmetry 1) — the same frame prev()
+ * reads as -1 (ADR #25). Also what the audio backend uses when nothing was fed.
+ */
+export const SELF_VARS = { s_ent: 0, s_sym: 1 };
 
 export const BINARY_OPS = ['+', '-', '*', '/', '^', '<', '>', '=='];
 

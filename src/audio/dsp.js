@@ -275,6 +275,8 @@ export function scanXY(path, phase, rowPhase, out) {
  * `compiled` objects come from core/js.js compileFormula() on the main thread
  * or from new Function inside the worklet: { fn, mode }.
  */
+const LIVE_INPUTS = ['mot', 's_ent', 's_sym'];
+
 export class SynthCore {
   constructor(sampleRate, { FL, oversample = 4, target = 0.5 } = {}) {
     this.FL = FL;
@@ -299,6 +301,7 @@ export class SynthCore {
     this.frame = 0;    // output-sample index → env.i
     this.env = {
       x: 0, y: 0, t: 0, r: 0, th: 0, mx: 0, my: 0, i: 0, dx: 0, dy: 0, mot: 0,
+      s_ent: 0, s_sym: 1, // black-frame stats until the renderer feeds real ones (ADR #43)
       params: {},
     };
     this.paramTargets = {};
@@ -380,9 +383,15 @@ export class SynthCore {
     this.env.my = my;
   }
 
-  /** Live scalar inputs that exist at audio rate too (mot — camera motion). */
+  /**
+   * Live scalar inputs that exist at audio rate too: mot (camera motion) and
+   * s_ent / s_sym (the image's own previous-frame stats, ADR #43).
+   */
   setInputs(inputs) {
-    if (inputs && typeof inputs.mot === 'number') this.env.mot = inputs.mot;
+    if (!inputs) return;
+    for (const name of LIVE_INPUTS) {
+      if (typeof inputs[name] === 'number') this.env[name] = inputs[name];
+    }
   }
 
   setTime(t) {

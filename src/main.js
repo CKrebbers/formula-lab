@@ -832,7 +832,8 @@ function initPanel() {
     // share a formula, so sliders/LFOs/audio keep driving the live image
     if (frameCount++ % 2 === 0) {
       cue.live('params', { params: renderState.params }, textarea.value);
-      avSound.setParams(renderState.params, state.mouse, { mot: state.mot }); // sound hears the mods too
+      // sound hears the mods too, and the image's own stats (ADR #43)
+      avSound.setParams(renderState.params, state.mouse, { mot: state.mot, ...renderer.selfStats });
     }
     if (avSound.playing) scope.draw(avSound, renderState.params, state.mouse);
     if (renderState.coords !== lastSentCoords) {

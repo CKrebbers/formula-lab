@@ -4,7 +4,9 @@
 // pack. See docs/FAMILY-PACKS.md for the workflow.
 
 const GRAMMAR = `FORMULA LANGUAGE (strict whitelist — anything else fails to parse):
-- variables: x, y (both -1..1), t (seconds), r, th (polar), mx, my (mouse), i (pixel index)
+- variables: x, y (both -1..1), t (seconds), r, th (polar), mx, my (mouse), i (pixel index),
+  s_ent, s_sym (0..1: the PREVIOUS frame's own entropy and mirror symmetry —
+  a term like (0.6 - s_ent) lets the image damp or excite itself)
 - functions: sin cos tan atan atan2 abs floor fract mod pow sqrt exp log
   min max clamp mix step smoothstep length sign fold
   noise(x,y) fbm(x,y,octaves) worley(x,y) hash(x,y)

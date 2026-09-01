@@ -3,7 +3,7 @@
 // and the GLSL renders are proven against this in the browser suite.
 // Slow on purpose; never used in the render or audio path.
 
-import { validate } from './ast.js';
+import { validate, SELF_VARS } from './ast.js';
 import { FL } from './jsruntime.js';
 
 export class InterpError extends Error {}
@@ -24,7 +24,7 @@ function evalNode(node, env, isTopLevel = false) {
     case 'num':
       return node.value;
     case 'var':
-      return env[node.name] ?? 0;
+      return env[node.name] ?? SELF_VARS[node.name] ?? 0;
     case 'param':
       return env.params?.[node.name] ?? 0;
     case 'neg':
