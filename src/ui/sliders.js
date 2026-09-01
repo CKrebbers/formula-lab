@@ -4,6 +4,7 @@
 // uniforms — never a recompile.
 
 import { inferRange, reroll } from '../core/constants.js';
+import { sliderStep, wheelZoomFactor, wheelNudge } from '../core/steps.js';
 import {
   createAutomation, evaluate, nextMode, glideValue, swapAutomationSettings,
   extractGesture, MODE_ICONS, AUDIO_MODES,
@@ -29,6 +30,15 @@ export class SliderPanel {
     this.glides = {};
     this.history = {}; // name → {t: [], v: []} rolling movement record
     this.lastT = 0;
+    this.stepScale = 1; // fine 0.1 / ×1 / coarse 10 — see core/steps.js
+  }
+
+  /** One coarseness for drag, arrow keys, wheel-zoom and shift+wheel nudges. */
+  setStepScale(scale) {
+    this.stepScale = scale;
+    for (const row of Object.values(this.rows)) {
+      row.slider.step = sliderStep(row.range.min, row.range.max, scale);
+    }
   }
 
   /** Rebuild the panel for a new set of params (locks & automation reset). */
@@ -144,12 +154,21 @@ export class SliderPanel {
     });
 
     // scroll on the slider: zoom the range around the current value —
-    // proportional to the actual wheel delta (a flick fires many events)
+    // proportional to the actual wheel delta (a flick fires many events).
+    // shift+scroll nudges the VALUE instead; both obey the step scale.
     slider.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const factor = Math.min(1.15, Math.max(0.87, Math.pow(1.0015, e.deltaY)));
       const v = parseFloat(slider.value);
       const r = this.rows[name].range;
+      if (e.shiftKey) {
+        // trackpads report a horizontal delta while shift is held
+        const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        const nv = v + wheelNudge(delta, r.min, r.max, this.stepScale);
+        this.setValue(name, nv, { smooth: false });
+        this.autos[name].center = parseFloat(slider.value);
+        return;
+      }
+      const factor = wheelZoomFactor(e.deltaY, this.stepScale);
       const half = Math.max(1e-6, ((r.max - r.min) * factor) / 2);
       this.setRange(name, v - half, v + half);
     }, { passive: false });
@@ -200,9 +219,9 @@ export class SliderPanel {
     const v = parseFloat(row.slider.value);
     row.slider.min = min;
     row.slider.max = max;
-    row.slider.step = row.range.step;
+    row.slider.step = sliderStep(min, max, this.stepScale);
     row.slider.value = Math.min(max, Math.max(min, v));
-    row.slider.title = 'push an end to extend · double-click to re-center · scroll to zoom';
+    row.slider.title = 'push an end to extend · double-click to re-center · scroll to zoom · shift+scroll to nudge';
     flashBound(row.minLabel, formatBound(min));
     flashBound(row.maxLabel, formatBound(max));
   }

@@ -316,6 +316,16 @@
     but a chaotic formula (julia/kali escape decisions) can still diverge
     materially on another engine. The difference is that it now fails with a
     number attached instead of "hash mismatch".
+40. **The panel is a floating window and coarseness is one global knob.**
+    `ui/panel.js` makes #panel draggable (grip), resizable (CSS `resize`), solid
+    (no image bleed) and remembers it in `fl.panel`; the canvas is untouched.
+    `core/steps.js` holds one step scale (fine 0.1 / ×1 / coarse 10) that
+    multiplies drag granularity, arrow keys, wheel-zoom speed and the new
+    shift+wheel value nudge — so "fine" means the same in every gesture instead
+    of each having its own modifier. Not done: the panel in its own browser
+    window (would need full state sync over BroadcastChannel; `⧉ out` already
+    puts the image elsewhere, which is the same separation the other way round).
+
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

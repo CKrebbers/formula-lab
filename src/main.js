@@ -40,6 +40,8 @@ import { Scope } from './ui/scope.js';
 import { FamilyPacks } from './families/packs.js';
 import { buildFamilyPrompt } from './families/prompt.js';
 import { PacksPanel } from './ui/packs.js';
+import { FloatingPanel } from './ui/panel.js';
+import { STEP_SCALES, STEP_LABELS, stepIndex } from './core/steps.js';
 
 const VIEW = new URLSearchParams(location.search).get('view');
 if (VIEW === 'display') {
@@ -90,6 +92,24 @@ function initPanel() {
   const sliders = new SliderPanel(el('sliders'), (name, value) => {
     state.params[name] = value;
   });
+
+  // the panel is a floating window: drag, resize, solid, remembered
+  const floating = new FloatingPanel(el('panel'), el('panel-grip'), localStorage);
+  el('panel-solid').addEventListener('click', () => {
+    el('panel-solid').classList.toggle('active', floating.toggleSolid());
+  });
+  el('panel-solid').classList.toggle('active', floating.state.solid);
+  el('panel-reset').addEventListener('click', () => floating.reset());
+
+  // step scale: fine / ×1 / coarse for every slider gesture ([ and ] keys)
+  let stepIdx = 1;
+  const setStep = (idx) => {
+    stepIdx = idx;
+    sliders.setStepScale(STEP_SCALES[idx]);
+    el('step').textContent = STEP_LABELS[idx];
+    el('step').classList.toggle('active', idx !== 1);
+  };
+  el('step').addEventListener('click', () => setStep((stepIdx + 1) % STEP_SCALES.length));
 
   const sheet = new ContactSheet(el('sheet'), {
     onPromoteParams(params) {
@@ -674,6 +694,8 @@ function initPanel() {
     if (e.key === 'h') el('panel').hidden = !el('panel').hidden;
     else if (e.key === 't') take();
     else if (e.key === 'd') dice();
+    else if (e.key === '[') setStep(stepIndex(stepIdx, -1));
+    else if (e.key === ']') setStep(stepIndex(stepIdx, 1));
   });
 
   // startup: a permalink wins; otherwise start somewhere COMPLETELY different

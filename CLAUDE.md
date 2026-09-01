@@ -106,6 +106,7 @@ src/
   display.js         # ?view=display: bare renderer, crossfading layers
   core/
     ast.js parser.js print.js glsl.js constants.js automate.js glitch.js modulators.js
+    steps.js       # one step scale (fine/×1/coarse) for every slider gesture
     js.js          # AST → JS (the audio twin of glsl.js) + audioSilentTerms()
     jsruntime.js   # FL: JS mirror of the fl_* GLSL helpers (float32-emulated hash)
     interp.js      # reference AST evaluator — the leg the parity tests stand on
@@ -125,6 +126,7 @@ src/
   ui/
     editor.js sliders.js sheet.js archive.js lineage.js elites.js mods.js packs.js families.js
     scope.js         # XY / waveform overlay, drawn from the compiled audio fn
+    panel.js         # the panel as a floating window: drag, resize, solid, remembered
   families/
     index.js packs.js prompt.js + one file per family
 tests/               # 26 vitest files, 345 tests (+ fixtures/, frozen)
