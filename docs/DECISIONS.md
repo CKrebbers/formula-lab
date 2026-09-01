@@ -345,6 +345,41 @@
     the formula without you in it. Not done: motion centroid as variables,
     color (cam is luminance only), a display-side camera toggle.
 
+42. **The zero-player ranks on sound as well as image, reading the meter that
+    already exists.** `stats.audio.pre` (ADR #35) becomes a 3-vector —
+    log10(rms) over -3..3, log2(crest) over 0..4, log10(flatness) over -6..0,
+    each mapped to 0..1 — and the same min-L2 novelty the image side uses
+    (`search/novelty.js`) runs on it against the archive + elites pool. The
+    cell is won on `fitness = (image novelty + audio novelty) / 2`
+    (`search/avnovelty.js`). Rules that follow: (a) **no descriptor when the
+    measurement does not describe the formula** — never measured, a v3 record
+    with `pre: null`, or taken while audio-silent terms (prev, dx, dy, cam)
+    were inert — and then fitness IS the image novelty: a formula the backend
+    cannot hear is judged on its look, never scored against a sound it does not
+    have. The alternative (rank the audible remainder of a prev() formula) is
+    one line in `audioDescriptor` and was not taken: the measurement would
+    imply the whole formula was heard, which ADR #38 exists to prevent.
+    (b) **The measurement runs off-thread.** Spike on the 15 autonomous
+    families: `computeAudioStats` costs 0.37–3.1 s each (fbm/curl the worst —
+    the 0.5 s settle plus a 32k window through the 4× core), unpayable on the
+    UI thread every 900 ms. So `audio/stats-worker.js` runs the SAME function
+    in a Vite inline worker (`?worker&inline`, a data URL in the single-file
+    build, +33 kB) and `audio/stats-remote.js` queues one job at a time with a
+    6 s budget; over budget → null → image-only, worker replaced, status line
+    counts it as unmeasured. Not a cheaper second meter: a candidate and a
+    saved preset are measured identically, so their descriptors compare.
+    (c) The scale was designed, not fitted: on the families the descriptor's
+    median pairwise distance is 0.148 (per-member min 0.014–0.33), the same
+    order as histogram novelty; the image side was not re-measured and the
+    average is the first thing to revisit after a real evening. (d) Elites
+    carry their own `stats.audio` and the grid stores `{novelty,
+    audioNovelty}` beside `fitness`, so a cell can say what it was won on; old
+    cells keep reading as plain `novelty`. (e) A candidate is measured through
+    the SESSION's scan path; pool members carry their own — descriptors across
+    different scans compare approximately, which ADR #36's provenance tag makes
+    visible rather than hidden. Effect on tempo: a step now waits for its
+    measurement, so `auto` runs slower on heavy families than the 900 ms tick.
+
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate

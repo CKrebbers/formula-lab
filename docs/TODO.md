@@ -28,9 +28,12 @@ palettes + tone mapping ✓. Ordered by agreed priority; sizes are sessions.
 
 ## Open in the AV layer (details + reasons in docs/HANDOFF.md)
 
-- **A1 stats.audio → zero-player novelty.** Measuring pre-limiter exists so
-  discoveries can be ranked on sound as well as image; nothing reads it yet.
-  This is the payoff of ADR #35 and the smallest next AV step. (~0.5)
+- ~~**A1 stats.audio → zero-player novelty.**~~ ✓ SHIPPED 2026-09-01 (ADR
+  #42): `search/avnovelty.js` turns `stats.audio.pre` into a descriptor, the
+  grid ranks on `(img + snd) / 2`, the measurement runs in an inline worker.
+  Unheard (prev/dx/dy/cam, unmeasured) = image-only, never punished. OPEN:
+  the img/snd balance was designed from the family corpus, not fitted — check
+  after a real `auto` evening; `auto` is slower on heavy families.
 - **A2 prev() in audio, or a written decision that it stays image-only.**
   It is 0 at 48 kHz today, declared honestly (ADR #38) but still a place where
   one formula means two things. (~1)

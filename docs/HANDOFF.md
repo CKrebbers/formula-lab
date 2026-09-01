@@ -9,9 +9,14 @@ unfinished.
 - **AV layer shipped**: one AST → `emitGLSL` (image) and `emitJS` (sound).
   Phases 1–3 (parametric f(t), parity + test harness, field scan paths) plus a
   hardening pass. Plan: `docs/adr/001-av-layer.md`. Decisions: DECISIONS #31–#39.
-- **Tests**: 345 unit (26 files, `npm test`, ~1 min) + 28 browser
-  (4 specs, `npm run test:browser`, ~1.5 min, includes a 30 s realtime run).
-  Single-file build 153 kB.
+- **Tests**: 383 unit (30 files, `npm test`, ~1 min) + 29 browser
+  (4 specs, `npm run test:browser`, ~3 min, includes a 30 s realtime run and
+  a zero-player run that waits for a real off-thread measurement).
+  Single-file build 186 kB (the inline stats worker is +33 kB of it).
+- **A1 shipped (ADR #42)**: the zero-player ranks on `stats.audio.pre` too.
+  `search/avnovelty.js` (descriptor + fitness), `audio/stats-worker.js` +
+  `audio/stats-remote.js` (the same `computeAudioStats`, off-thread, 6 s
+  budget). Unheard formulas are judged on image alone.
 - **Git**: clean tree, **13 commits ahead of origin/main, not pushed**. Pushing
   to main deploys to GitHub Pages *and* varve.nl/formula-lab over SSH, and the
   CI gates on both suites. Clay decides when that happens.
@@ -52,9 +57,12 @@ unfinished.
 
 ## Deliberately unfinished
 
-- **`stats.audio` is not read by anything yet.** Measuring pre-limiter
-  (ADR #35) exists so the zero-player's novelty can rank on sound as well as
-  image. That wiring was the *reason* for the work, not part of it.
+- **The image/sound balance in the zero-player is designed, not fitted.**
+  The descriptor's scale was set from the family corpus (median pairwise
+  0.148); histogram novelty was never measured against it. If `auto` starts
+  filling cells on sound alone, or never on sound, the average in
+  `avFitness` is where to look — and the elites tooltip shows both halves.
+  Also: a step now waits for its measurement, so `auto` crawls on fbm/curl.
 - **`prev()` has no audio story.** Either give the worklet a feedback buffer at
   audio rate, or decide feedback stays image-only and say so in §5 of CLAUDE.md.
 - **Chrome's `renderCapacity`** was absent in this build, so the dropout meter

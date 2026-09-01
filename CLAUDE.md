@@ -47,8 +47,13 @@ formulas play as L/R with an XY scope, field formulas sound through a scan path.
 decisions #31–#39. **Before touching the audio path, read docs/HANDOFF.md** —
 it holds the traps (44.1 kHz not 48, the deliberate 250 ms silence at start,
 sound follows the CUE, prev()/dx/dy are 0 in audio).
-Counts as of 2026-09-01: 345 unit tests (26 files) + 28 browser tests
-(Playwright, `npm run test:browser`), single-file build ~153 kB.
+AND SINCE THEN (A1, ADR #42): **the zero-player ranks on sound too** —
+`stats.audio.pre` → descriptor (`search/avnovelty.js`), fitness =
+(image novelty + audio novelty) / 2, measured off-thread by the same
+`computeAudioStats` in an inline worker. Unheard formulas (prev/dx/dy/cam,
+or unmeasured) are judged on image alone.
+Counts as of 2026-09-01: 383 unit tests (30 files) + 29 browser tests
+(Playwright, `npm run test:browser`), single-file build ~186 kB.
 
 Built in one marathon session (24 commits, ~5,500 lines, 201 vitest tests green,
 single-file build ~94 kB). v1, v2 and v3's zero-player are DONE, plus a large
@@ -82,7 +87,7 @@ WORKING RIGHT NOW:
   'xover' with a random archived snapshot.
 - Zero-player ('auto'): Explorer births candidates via mutate / crossover /
   family-LHS-reroll / random birth, filters them, and fills a 10×10 MAP-Elites
-  grid (entropy × symmetry, novelty fitness, persistent). Main view follows each
+  grid (entropy × symmetry, fitness = image + sound novelty, persistent). Main view follows each
   discovery; discoveries also mutate palette/tone. Typing or picking a cell
   hands control back.
 - Archive: save/load with real stats, 64×64 thumbs, ratings (stars in the
@@ -115,6 +120,7 @@ src/
     gl.js tile.js thumbs.js
   search/
     mutate.js crossover.js walk.js sample.js filter.js fft.js novelty.js elites.js explore.js
+    avnovelty.js   # stats.audio.pre → descriptor; fitness = (img + snd) / 2 (ADR #42)
   store/
     snapshot.js archive.js url.js
   sync/
@@ -126,6 +132,7 @@ src/
     dsp.js                       # SynthCore, output chain, scan paths, DropoutMeter
     worklet-glue.js synth.js     # the worklet shell + its main-thread controller
     stats.js                     # stats.audio {pre, post, silent}, offline
+    stats-worker.js stats-remote.js  # the same meter off-thread for the zero-player (ADR #42)
   ui/
     editor.js sliders.js sheet.js archive.js lineage.js elites.js mods.js packs.js families.js
     scope.js         # XY / waveform overlay, drawn from the compiled audio fn

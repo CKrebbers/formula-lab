@@ -2,6 +2,51 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-09-01 — A1: the zero-player hears its discoveries (ADR #42)
+
+**status:** the payoff of ADR #35. `stats.audio.pre` is read at last: the
+zero-player ranks every candidate on how new it sounds as well as how new it
+looks. Nothing else changed — no camera, no prev() audio, no scan params.
+
+- **Spike first.** `computeAudioStats` on the 15 autonomous families: 0.37 s
+  (field.trig) to 3.1 s (warp.curl) per formula in Node — the chain's 0.5 s
+  settle plus a 32k window through the 4× oversampled core. On the UI thread
+  every 900 ms that would have frozen the panel, so the same function now runs
+  in an inline worker (`audio/stats-worker.js`, Vite `?worker&inline`), driven
+  by `audio/stats-remote.js`: one job at a time, 6 s budget, over budget =
+  unmeasured, worker replaced. One meter, two call sites.
+- **`search/avnovelty.js`**: `stats.audio.pre` → `[level, crest, flatness]` on
+  log scales, min-L2 novelty against the archive + elites pool (same
+  `noveltyOf` as the image side), `fitness = (img + snd) / 2`. Measured on the
+  families: median pairwise descriptor distance 0.148, per-member min
+  0.014–0.33 — the same order as histogram novelty, so neither side swamps.
+- **Unheard is not punished.** No descriptor when nothing was measured, when
+  `pre` is null (migrated v3), or when audio-silent terms (prev/dx/dy/cam)
+  were inert during the measurement; then the cell is won on image novelty
+  alone. Tested: Trails and a cam() formula get `null`, and a sound-alike with
+  audio novelty 0 ranks BELOW a silent-term formula of equal image novelty.
+- **Ranking moves with `pre.rms`.** Tested on the ADR #35 pair: the same sine
+  at ×0.001 and ×1000 — `post` cannot tell them apart (Δrms < 0.02), the
+  descriptor puts them at opposite ends of the level axis, and with the
+  mid-level sine in the pool the loud one out-ranks another mid one.
+- Elites now carry `stats.audio` (so later candidates are ranked against how
+  earlier finds sound) and the grid keeps `{novelty, audioNovelty}` beside
+  `fitness`; the cell tooltip reads `fitness 0.412 (img 0.310 · snd 0.514)`.
+  The status line counts `snd N heard, M unmeasured`.
+- Tests: +15 unit (`tests/avnovelty.test.js`, real `computeAudioStats`
+  outputs), +5 unit (`tests/stats-remote.test.js`, fake worker: order,
+  timeout, replacement, no-Worker fallback), +1 browser (e2e: press `auto`,
+  status reports a heard candidate, every won cell carries img · snd).
+  383 unit + 29 browser. Single-file build 186 kB (was 153; the worker
+  duplicates the compile chain as a data URL).
+
+**besluit:** done: A1. Deliberately not done: the image/audio balance was
+designed from the family corpus, not fitted against real image novelty — the
+first thing to revisit after an evening of `auto` with sound on; a candidate
+is measured through the session's scan path while pool members carry their
+own (ADR #36 keeps that visible). `auto` is slower on heavy families now,
+because a step waits for its measurement. Next per TODO: Clay plays.
+
 ## 2026-09-01 — AV hardening: make the tests prove something (ADR #33–#39)
 
 **status:** no new features. Six review points, in the order that puts the
