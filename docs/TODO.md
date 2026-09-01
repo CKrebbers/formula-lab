@@ -34,9 +34,11 @@ palettes + tone mapping ✓. Ordered by agreed priority; sizes are sessions.
   Unheard (prev/dx/dy/cam, unmeasured) = image-only, never punished. OPEN:
   the img/snd balance was designed from the family corpus, not fitted — check
   after a real `auto` evening; `auto` is slower on heavy families.
-- **A2 prev() in audio, or a written decision that it stays image-only.**
-  It is 0 at 48 kHz today, declared honestly (ADR #38) but still a place where
-  one formula means two things. (~1)
+- ~~**A2 prev() in audio, or a written decision that it stays image-only.**~~
+  ✓ SHIPPED 2026-09-01 (ADR #43): the synth core owns a scan-written 64×64
+  feedback grid; `prev()` reads it, `dx`/`dy` are one cell. Only `cam()` is
+  still audio-silent. OPEN: the scope draws prev() formulas without their
+  feedback; the grid size is a constant.
 - **A3 scan path parameters** — row count for `line`, windings for `spiral`,
   ratio for `lissajous`; all hardcoded now. (~0.5)
 - Parked: Chrome `renderCapacity` as a second opinion for the dropout meter

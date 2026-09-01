@@ -2,6 +2,45 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-09-01 — A2: prev() is heard (ADR #43)
+
+**status:** the last "one formula means two things" in the audio backend is
+closed. `prev(x, y)`, `dx` and `dy` are no longer 0 at audio rate; `cam()` is
+the only audio-silent term left, still declared per formula (ADR #38).
+
+- **Spike first** (Node, lissajous 110 Hz): with a scan-written grid, Trails
+  measures pre.rms 0.196 / crest 4.5 against 0.042 / 1.5 for its driver term
+  alone; a `prev * 0.9` comb 0.526 vs 0.071; plain `prev(x, y)` is silence
+  (black held), a runaway saturates at the clamp; per-block cost unchanged at
+  0.22 ms; deterministic; the three scan paths give three different sounds.
+  That was enough to build rather than to declare feedback image-only.
+- **`ScanFeedback`** (`audio/dsp.js`, embedded in the worklet with the rest):
+  a 64×64 grid; the scan writes each cell once per visit (the mean of the
+  samples spent inside, committed on leaving), `prev()` reads it bilinearly,
+  `dx`/`dy` = one cell (2/64). Black (-1) on reset and on every formula
+  change, clamp to -1..1 on write, edge-clamped reads — the shader's rules
+  (ADR #23/#25) where they apply. Bound per core: `FL` stays pure, the scope
+  on the main thread draws a prev() formula's direct part only (documented).
+- **Emitter**: `audioSilentTerms` lists cam() only; `compileFormula` carries
+  `feedback` so the core writes only when a formula reads prev(). The panel
+  note under the editor now appears for cam() alone.
+- **Zero-player**: untouched. Trails-like formulas get a descriptor through
+  the same ADR #42 rules because their measurement no longer carries a silent
+  term; "unheard is not punished" still holds for cam() and unmeasured.
+- Tests: `tests/feedback-audio.test.js` (+17: grid rules, hold, clamp,
+  neighbour idiom, line rows exact, reset, dx heard, per-path difference,
+  determinism, safety with feedback); js/avstats/avnovelty updated to lock
+  the new contract (+4); the perf budget formula now reads `prev(x + dx, y)`;
+  the Trails golden regenerated deliberately (the only entry that changed);
+  the e2e note test uses cam() and asserts Trails shows no note.
+  404 unit + 29 browser. Single-file build 194 kB (+8, the grid class in
+  worklet and worker).
+
+**besluit:** done: A2 as "build", not "decide". Deliberately not done: a grid
+size setting (64 is a constant), feedback in the scope (the buffer is on the
+audio thread), any A3 scan-path parameter, cam() in audio. Next per TODO: Clay
+plays; then A3.
+
 ## 2026-09-01 — A1: the zero-player hears its discoveries (ADR #42)
 
 **status:** the payoff of ADR #35. `stats.audio.pre` is read at last: the

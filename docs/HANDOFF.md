@@ -9,10 +9,13 @@ unfinished.
 - **AV layer shipped**: one AST → `emitGLSL` (image) and `emitJS` (sound).
   Phases 1–3 (parametric f(t), parity + test harness, field scan paths) plus a
   hardening pass. Plan: `docs/adr/001-av-layer.md`. Decisions: DECISIONS #31–#39.
-- **Tests**: 383 unit (30 files, `npm test`, ~1 min) + 29 browser
+- **A2 shipped (ADR #43)**: `prev()` is heard. `ScanFeedback` in
+  `audio/dsp.js` is a 64×64 grid the scan path writes; `prev()` reads it,
+  `dx`/`dy` are one cell. Only `cam()` is still audio-silent.
+- **Tests**: 404 unit (31 files, `npm test`, ~1 min) + 29 browser
   (4 specs, `npm run test:browser`, ~3 min, includes a 30 s realtime run and
   a zero-player run that waits for a real off-thread measurement).
-  Single-file build 186 kB (the inline stats worker is +33 kB of it).
+  Single-file build 194 kB (the inline stats worker is +33 kB of it).
 - **A1 shipped (ADR #42)**: the zero-player ranks on `stats.audio.pre` too.
   `search/avnovelty.js` (descriptor + fitness), `audio/stats-worker.js` +
   `audio/stats-remote.js` (the same `computeAudioStats`, off-thread, 6 s
@@ -34,10 +37,15 @@ unfinished.
    `sampleRate`; use it. Node tests pin 48 kHz explicitly, which is fine.
 3. **Sound follows the CUE, not the program.** You hear what the panel is
    editing. Display windows (`?view=display`) are silent by design.
-4. **`prev()`, `dx`, `dy` are 0 in the audio backend.** `compileFormula()`
-   returns them as `silent`; the panel prints a line under the editor and
-   `stats.audio.silent` records it. Do not let a future change make
-   `stats.audio` imply a whole formula was heard.
+4. **`prev()` in sound reads the scan-written grid, not a frame** (ADR #43).
+   A cell is the mean of one visit, committed when the scan leaves it; cells
+   the path never crosses stay black (-1); the grid resets on every formula
+   message (so does the shader's buffer). Consequences that look like bugs
+   and are not: Trails sounds different per scan path; `prev(x, y)` alone is
+   silence (black held); the scope draws a prev() formula's direct part only.
+   `cam()` is the one term still 0 in sound — `compileFormula()` returns it as
+   `silent`, the panel prints the line, `stats.audio.silent` records it. Do
+   not let a future change make `stats.audio` imply a whole formula was heard.
 5. **Goldens are tolerance-compared, not hashed** (ADR #39). Regenerate only
    deliberately (`UPDATE_GOLDEN=1 npx vitest run tests/golden.test.js`). Two
    guards exist because this file once went vacuous while staying green: every
@@ -63,8 +71,12 @@ unfinished.
   filling cells on sound alone, or never on sound, the average in
   `avFitness` is where to look — and the elites tooltip shows both halves.
   Also: a step now waits for its measurement, so `auto` crawls on fbm/curl.
-- **`prev()` has no audio story.** Either give the worklet a feedback buffer at
-  audio rate, or decide feedback stays image-only and say so in §5 of CLAUDE.md.
+- **The feedback grid is 64 cells and the scan paths are what they are.**
+  Lissajous at 110 Hz visits ~560 of 4096 cells per traversal, spiral ~870,
+  line 64 (one row per sweep). A3's path parameters change coverage, and
+  with it how prev() sounds; the grid size is a constant, not a setting.
+- **The scope cannot show feedback.** The grid lives on the audio thread; a
+  prev() formula's scope shows its direct part. Honest, documented, not solved.
 - **Chrome's `renderCapacity`** was absent in this build, so the dropout meter
   has no second opinion; its negative control is what validates it. If a Chrome
   ever exposes it, `tests/browser/dropouts.spec.js` already reads it.
@@ -79,5 +91,6 @@ unfinished.
 `npm run dev` → http://localhost:5173, then:
 `vec2(sin(440.0*6.283*t), sin(662.0*6.283*t))` + `▶ snd` (Lissajous in the
 scope) · a starter like Kaliset + the scan-rate slider (field becomes pitch) ·
-the Trails starter (prev() note appears) · a heavy iterated formula until the
+the Trails starter with `▶ snd` (a comb at the scan rate; no ♪ note any more,
+the note is for cam() only) · a heavy iterated formula until the
 status line reports dropouts — that is how to find this machine's ceiling.

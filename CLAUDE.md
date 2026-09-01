@@ -52,8 +52,11 @@ AND SINCE THEN (A1, ADR #42): **the zero-player ranks on sound too** —
 (image novelty + audio novelty) / 2, measured off-thread by the same
 `computeAudioStats` in an inline worker. Unheard formulas (prev/dx/dy/cam,
 or unmeasured) are judged on image alone.
-Counts as of 2026-09-01: 383 unit tests (30 files) + 29 browser tests
-(Playwright, `npm run test:browser`), single-file build ~186 kB.
+AND (A2, ADR #43): **prev() is heard.** The synth core owns a scan-written
+feedback grid (`ScanFeedback` in audio/dsp.js); prev()/dx/dy left the
+audio-silent list, so the zero-player now ranks Trails-like formulas on sound.
+Counts as of 2026-09-01: 404 unit tests (31 files) + 29 browser tests
+(Playwright, `npm run test:browser`), single-file build ~194 kB.
 
 Built in one marathon session (24 commits, ~5,500 lines, 201 vitest tests green,
 single-file build ~94 kB). v1, v2 and v3's zero-player are DONE, plus a large
@@ -129,7 +132,7 @@ src/
     camera.js        # getUserMedia + <video> for the cam() texture + motion frames
   audio/
     engine.js analysis.js        # audio REACTIVITY (listening: tab/mic → bands)
-    dsp.js                       # SynthCore, output chain, scan paths, DropoutMeter
+    dsp.js                       # SynthCore, output chain, scan paths, DropoutMeter, ScanFeedback (prev() grid)
     worklet-glue.js synth.js     # the worklet shell + its main-thread controller
     stats.js                     # stats.audio {pre, post, silent}, offline
     stats-worker.js stats-remote.js  # the same meter off-thread for the zero-player (ADR #42)
@@ -169,9 +172,15 @@ Shipped since: prev(x,y) (feedback buffer, arity 2); cam(x,y) (camera
 luminance at formula coords, mirrored, -1..1, 0 while the camera is off) and
 the variable mot (camera motion 0..1) — ADR #41. Reserved for later:
 in1..in4 (live inputs).
-IN AUDIO: prev(), dx and dy evaluate to 0 (no frame buffer at 48 kHz, no screen
-pixel) — the emitter reports them as `silent`, the panel says so per formula,
-and stats.audio records the list. Do not let that limit become implicit again.
+IN AUDIO (ADR #43): prev(x, y) reads a 64×64 feedback grid the SCAN PATH writes
+as it goes — "the previous pass of the scan over this cell" is the audio twin of
+"the previous frame at this pixel" — and dx/dy are one grid cell (2/64). Same
+rules as the shader: black (-1) on reset and formula change, clamped to -1..1 on
+write, edge-clamped reads; cells the path never crosses stay black, and the
+scope draws a prev() formula without its feedback (the grid lives on the audio
+thread). Only cam() is still 0 in sound (no camera texture in the worklet):
+the emitter reports it as `silent`, the panel says so per formula, and
+stats.audio records the list. Do not let that limit become implicit again.
 
 6. Snapshot schema (v4 — current; v2 described below, plus:)
 v3 added `scan {path, freq, origin}` (origin says whether a session chose it or

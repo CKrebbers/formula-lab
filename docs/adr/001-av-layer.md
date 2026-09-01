@@ -40,9 +40,10 @@ third, independent leg the parity tests stand on.
 
 ## Semantics pinned here
 
-- `prev(x,y)` → 0 in the audio backend (there is no frame buffer at 48 kHz); such
-  formulas stay image-only until a feedback story exists. `dx`/`dy` → 0 in audio.
-  `i` = output-sample index. Documented, not hidden.
+- ~~`prev(x,y)` → 0 in the audio backend~~ superseded by ADR #43 (2026-09-01):
+  `prev(x,y)` reads a 64×64 grid the scan path writes, `dx`/`dy` are one cell of
+  it. `cam()` → 0 in audio (ADR #41). `i` = output-sample index. Documented, not
+  hidden.
 - JS runs float64, the GPU float32. Parity: reference ↔ emitJS at 1e-6 (both f64);
   reference ↔ GLSL via readPixels with a float32-realistic tolerance, and the
   chaotic hash-based helpers compared structurally (they amplify last-bit noise).

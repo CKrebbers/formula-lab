@@ -380,6 +380,46 @@
     visible rather than hidden. Effect on tempo: a step now waits for its
     measurement, so `auto` runs slower on heavy families than the 900 ms tick.
 
+43. **prev() is heard: the synth core owns a feedback grid the scan path
+    writes.** A2 asked for either an audio-rate feedback story or a written
+    "image-only" decision. Built, because a coherent twin exists: the shader
+    reads the previous FRAME at a pixel; sound has no frame but it has the
+    scan, so `ScanFeedback` (audio/dsp.js, 64×64 Float32, embedded in the
+    worklet like everything else there) records what the formula produced at
+    each cell the path visits, and `prev(x, y)` reads it bilinearly — "the
+    previous pass of the scan over this cell". Trails on screen become a
+    comb/delay at the scan rate; `prev(x + dx, y)` reads the next cell because
+    `dx`/`dy` ARE one cell (2/64) in this backend. Rules copied from the
+    shader where they apply: black (-1) on reset and on every formula change
+    (#25), clamp to -1..1 on write so plain `prev(x, y)` is a hold and a
+    runaway saturates (#23), edge-clamped reads (#25). Rules that are this
+    backend's own, on purpose: (a) a cell is written ONCE per visit — the mean
+    of the samples the scan spent inside it, committed when it leaves — so
+    consecutive samples in one cell read the previous pass, not each other
+    (otherwise the loop gain would depend on the scan rate); (b) cells the
+    path never crosses stay black, so the same formula sounds different per
+    scan path (measured: Trails pre.rms 0.196 lissajous / 0.130 spiral /
+    0.061 line); (c) cell values sit at the cell's lower-left corner so the
+    line raster's 64 rows land exactly on the 64 grid rows; (d) the grid feeds
+    back what THIS backend produced — the scalar, a vec3's luminance, the mid
+    of a vec2 pair — and only the current voice writes during the 20 ms
+    crossfade. `prev` is bound per core (`core.FL` overrides the shared FL's
+    stub), so `FL` stays pure and two cores never share state; the scope plot
+    on the main thread therefore draws a prev() formula's DIRECT part only —
+    the buffer is on the audio thread — and says so in its JSDoc. Measured
+    first (Node, lissajous 110 Hz): Trails pre.rms 0.196 vs 0.042 for its
+    driver alone, crest 4.5 vs 1.5; a 0.9 comb 0.526 vs 0.071; cost per
+    128-frame block unchanged at 0.22 ms (the grid is four loads and a
+    compare per sample); deterministic. Consequences: `audioSilentTerms` now
+    lists cam() only, `compileFormula` carries `feedback` (the core writes
+    only when a formula reads prev()), the Trails golden was regenerated
+    deliberately (the only entry that changed), the perf budget formula now
+    includes a `prev(x + dx, y)` term, and the zero-player ranks prev()
+    formulas on sound through the unchanged ADR #42 rules — nothing was
+    forced through `audioDescriptor`; the term simply stopped being silent.
+    Grid inside dsp.js rather than its own module: the worklet Blob forbids
+    imports there, the same reason DCBlocker and DropoutMeter live in it.
+
 14. **Per-slider automation (LFO) added on request** (`core/automate.js`): modes
     off/sine/tri/walk, rate in Hz, depth as fraction of the slider range, centered on
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate
