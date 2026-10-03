@@ -3,30 +3,53 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from '../src/core/parser.js';
 import { extractParams, inferRange } from '../src/core/constants.js';
-import { speedParam, panelControls, buildManifest, connectPanel } from '../src/sync/hub.js';
+import { panelControls, buildManifest, connectPanel } from '../src/sync/hub.js';
 
-/** Stand-in for main.js: the same adapter shape, sliders reduced to state. */
+/**
+ * Stand-in for main.js: the same adapter shape, sliders reduced to state plus
+ * SliderPanel's automation contract — with an LFO on, state.params carries the
+ * orbit, the hand value (setValue / baseValue) is the center it orbits.
+ */
 function fakePanel(source = 'sin(x * 4.0 + t * 0.7) + 0.5') {
-  const { ast, params } = extractParams(parse(source));
+  const { params } = extractParams(parse(source));
   const ranges = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, inferRange(v)]));
   const calls = [];
+  const center = { ...params };
+  const lfo = {}; // name → depth in param units, while an automation runs
   const panel = {
     state: { params: { ...params }, coords: 0, palette: 0, smooth: false, tone: 0 },
     ranges: () => ranges,
-    ast: () => ast,
-    setParam: (name, v) => { panel.state.params[name] = v; calls.push(['param', name, v]); },
+    value: (name) => center[name],
+    setParam: (name, v) => {
+      center[name] = v;
+      panel.state.params[name] = v;
+      calls.push(['param', name, v]);
+    },
+    /** SliderPanel.tick with an LFO: state.params = center + orbit. */
+    tick(t) {
+      for (const [name, depth] of Object.entries(lfo)) {
+        panel.state.params[name] = center[name] + depth * Math.sin(t * 7);
+      }
+    },
+    lfo,
     setCoords: (i) => { panel.state.coords = i; },
     setStyle: (s) => Object.assign(panel.state, s),
     take: () => calls.push(['take']),
     dice: () => calls.push(['dice']),
     status: () => {},
     calls,
+    /** A hand / dice / load moved the param itself (no automation). */
+    move(name, v) {
+      center[name] = v;
+      panel.state.params[name] = v;
+    },
     swap(src) { // the formula changed (applyFormula)
       const next = extractParams(parse(src));
       panel.state.params = next.params;
+      for (const k of Object.keys(center)) delete center[k];
+      Object.assign(center, next.params);
       for (const k of Object.keys(ranges)) delete ranges[k];
       for (const [k, v] of Object.entries(next.params)) ranges[k] = inferRange(v);
-      panel.ast = () => next.ast;
     },
   };
   return panel;
@@ -50,13 +73,14 @@ class FakeWS {
 }
 
 describe('hub: manifest', () => {
-  it('formula params become faders, the t-multiplier gets macro.beweging', () => {
+  it('formula params become plain faders; palette gets macro.kleur', () => {
     const m = buildManifest(panelControls(fakePanel()));
     expect(m).toMatchObject({ v: 1, app: 'formula-lab', truth: 'app', hb_s: 1 });
     const byId = Object.fromEntries(m.params.map((p) => [p.id, p]));
     expect(byId.a).toMatchObject({ soort: 'waarde', hint: 'fader' });
-    expect(byId.b.rol).toBe('macro.beweging'); // t * 0.7
-    expect(byId.a.rol).toBeUndefined();
+    // t * 0.7 is a phase scrubber, not a speed: no macro.beweging (ADR #31)
+    expect(byId.b).toMatchObject({ soort: 'waarde', hint: 'fader' });
+    expect(m.params.filter((p) => p.groep === 'formula').every((p) => p.rol === undefined)).toBe(true);
     expect(byId.take.soort).toBe('trigger');
     expect(byId.dice.soort).toBe('trigger');
     expect(byId.palette).toMatchObject({ soort: 'keuze', rol: 'macro.kleur' });
@@ -64,12 +88,6 @@ describe('hub: manifest', () => {
     expect(byId.smooth.soort).toBe('schakelaar');
     expect(byId.tone.keuzes).toEqual(['clamp', 'wrap', 'fold']);
     expect(m.params.every((p) => typeof p.get !== 'function')).toBe(true);
-  });
-
-  it('speedParam finds t * k and k * t, else null', () => {
-    const sp = (s) => speedParam(extractParams(parse(s)).ast);
-    expect(sp('sin(x * 3.0 + 2.0 * t)')).toBe('b');
-    expect(sp('sin(x + t)')).toBe(null);
   });
 });
 
@@ -143,6 +161,49 @@ describe('hub: connection', () => {
     link.stop();
   });
 
+  it('a burst of trig is fired once per 250 ms per id (a looping hub cannot freeze the panel)', () => {
+    const panel = fakePanel();
+    const link = connectPanel('ws://h/app', panel, FakeWS);
+    const ws = FakeWS.all[0];
+    ws.open();
+    for (let i = 0; i < 100; i++) ws.hub({ t: 'trig', id: 'dice', aan: true });
+    ws.hub({ t: 'trig', id: 'take', aan: true }); // another id is not held back
+    expect(panel.calls.map((c) => c[0])).toEqual(['dice', 'take']);
+    vi.advanceTimersByTime(260);
+    ws.hub({ t: 'trig', id: 'dice', aan: true });
+    expect(panel.calls.filter((c) => c[0] === 'dice')).toHaveLength(2);
+    link.stop();
+  });
+
+  it('with an LFO on a param, the hub hears its center, never the orbit', () => {
+    const panel = fakePanel();
+    const link = connectPanel('ws://h/app', panel, FakeWS);
+    const ws = FakeWS.all[0];
+    ws.open();
+    const r = panel.ranges().a;
+    panel.lfo.a = (r.max - r.min) * 0.1;
+    ws.out.length = 0;
+    ws.hub({ t: 'zet', id: 'a', v: 0.7, bron: 'apc40' });
+    for (let f = 0; f < 120; f++) { // 2 s of frames
+      panel.tick(f / 60);
+      vi.advanceTimersByTime(1000 / 60);
+    }
+    expect(panel.state.params.a).not.toBeCloseTo(r.min + 0.7 * (r.max - r.min), 3); // it does orbit
+    expect(ws.sent('zet')).toEqual([]); // …but the pickup target stays where the hub put it
+    expect(ws.sent('staat')).toEqual([]);
+    link.stop();
+  });
+
+  it('a fault from the hub shows up as status', () => {
+    const seen = [];
+    const panel = { ...fakePanel(), status: (s) => seen.push(s) };
+    const link = connectPanel('ws://h/app', panel, FakeWS);
+    FakeWS.all[0].open();
+    FakeWS.all[0].hub({ t: 'fout', reden: 'ongeldig manifest: params[3].soort' });
+    expect(seen.at(-1)).toBe('error: ongeldig manifest: params[3].soort');
+    link.stop();
+  });
+
   it('own changes go out as zet; silence goes out as hb within hb_s', () => {
     const panel = fakePanel();
     const link = connectPanel('ws://h/app', panel, FakeWS);
@@ -164,7 +225,7 @@ describe('hub: connection', () => {
     const ws = FakeWS.all[0];
     ws.open();
     ws.out.length = 0;
-    panel.state.params.a = 5; // a dice: same names, new value
+    panel.move('a', 5); // a dice: same names, new value
     link.refresh();
     expect(ws.out.map((m) => m.t)).toEqual(['staat']);
     panel.swap('fbm(x * 2.0, y, 3.0) + t * 0.2 + 1.0 + 2.0');
@@ -214,6 +275,9 @@ describe('hub: connection', () => {
 // (or AV_APP_HUB points at it); the browser-level run is `npm run test:hub`.
 const HUB_REPO = process.env.AV_APP_HUB ?? resolve(__dirname, '../../av-app-hub');
 const hasHub = existsSync(resolve(HUB_REPO, 'tools/nep-hub.mjs'));
+if (!hasHub) {
+  console.warn(`hub conformance test skipped: no AV-app-hub at ${HUB_REPO} (set AV_APP_HUB=/path/to/av-app-hub)`);
+}
 
 describe.skipIf(!hasHub)('hub: AV-app-hub conformance (nep-hub toetsApp)', () => {
   it('passes every check', async () => {

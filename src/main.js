@@ -64,6 +64,8 @@ function initPanel() {
   let pendingOrigin = null;    // 'mutate' | 'crossover' when promoted from a sheet
   let pendingOperator = null;
   let hub = null;              // Varve hub link, only with ?hub=ws://… (sync/hub.js)
+  let hubStatus = '';          // last hub state, kept in the status line
+  let lastFrameAt = 0;         // performance.now() of the last rAF frame
 
   const renderer = new Renderer(canvas);
   const tileRenderer = new TileRenderer(128);
@@ -186,7 +188,7 @@ function initPanel() {
 
   function updateStatus(extra = '') {
     statusEl.textContent =
-      `[${currentMode}] [${COORDS[state.coords]}] ${Object.keys(state.params).length} param(s) · h = hide panel${extra}`;
+      `[${currentMode}] [${COORDS[state.coords]}] ${Object.keys(state.params).length} param(s) · h = hide panel${extra}${hubStatus}`;
   }
 
   function loadSnapshot(snap) {
@@ -415,7 +417,12 @@ function initPanel() {
     });
     // never leave the hash in the address bar — it would defeat the random
     // start on the next reload (a pasted link still loads once, then strips)
-    const url = location.origin + location.pathname + location.search + hash;
+    // ?hub= is this machine's wiring, not part of the formula: a shared link
+    // must not switch the hub link on for whoever opens it
+    const search = new URLSearchParams(location.search);
+    search.delete('hub');
+    const query = search.toString();
+    const url = location.origin + location.pathname + (query ? `?${query}` : '') + hash;
     try {
       await navigator.clipboard.writeText(url);
       updateStatus(' · link copied');
@@ -501,9 +508,21 @@ function initPanel() {
   if (hubAddress) {
     import('./sync/hub.js').then(({ connectPanel }) => {
       hub = connectPanel(hubAddress, {
-        state, ranges: () => sliders.ranges(), ast: () => currentParamAst,
-        setParam: (name, v) => sliders.setValue(name, v, { smooth: false }),
-        setCoords, setStyle, take, dice, status: (s) => updateStatus(` · hub ${s}`),
+        state, ranges: () => sliders.ranges(),
+        value: (name) => sliders.baseValue(name) ?? state.params[name], // not an LFO's orbit
+        setParam(name, v) {
+          sliders.setValue(name, v, { smooth: false });
+          // frame() carries params to the displays, but rAF stops while the
+          // panel is hidden/minimised — a controller still plays then
+          if (performance.now() - lastFrameAt > 100) {
+            cue.live('params', { params: state.params }, textarea.value);
+          }
+        },
+        setCoords, setStyle, take, dice,
+        status(s) {
+          hubStatus = ` · hub ${s}`;
+          updateStatus();
+        },
       });
     });
   }
@@ -677,6 +696,7 @@ function initPanel() {
   let frameCount = 0;
   let lastSentCoords = null;
   function frame(now) {
+    lastFrameAt = performance.now();
     state.time = (now - start) / 1000;
     sliders.tick(state.time, audioEngine.tick(state.time));
     // modulators are a render-time overlay: base params stay clean

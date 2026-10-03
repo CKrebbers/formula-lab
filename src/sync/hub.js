@@ -8,6 +8,11 @@
 // hub can never push a param further than a hand on the slider could, and
 // the displays follow exactly as they do for a drag.
 //
+// What goes back to the hub is the same quantity the hub sets: the param's
+// HAND value (an automation's center, a glide's target), never the orbit an
+// LFO or ♪ band draws around it — otherwise every 100 ms the app would move
+// the fader's pickup target and the hardware would lose its grip.
+//
 // No DOM here: the WebSocket class and the panel are injected, so the whole
 // protocol is testable in Node.
 
@@ -18,38 +23,25 @@ const APP = 'formula-lab';
 const HB_S = 1;
 const BACKOFF_MS = [500, 1000, 2000, 5000];
 const REPLACED_MS = 30000; // close 4001: another panel took our slot
-const POLL_MS = 100;       // own changes (drag, LFO, audio) reach the hub at ≤10 Hz
+const POLL_MS = 100;       // own changes (drag, dice, load) reach the hub at ≤10 Hz
+const TRIG_GAP_MS = 250;   // a trigger fires at most once per 250 ms per id
 const MAX_FORMULA_PARAMS = 120; // manifest cap is 128, six are fixed controls
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const toIndex = (v, n) => Math.round(clamp01(v) * (n - 1));
 
 /**
- * The formula param that is a direct multiplier of t (`t * a`, `a * t`):
- * the formula's speed, so it gets the global motion macro. null if none.
- */
-export function speedParam(ast) {
-  if (!ast || typeof ast !== 'object') return null;
-  if (ast.type === 'bin' && ast.op === '*') {
-    const { left: l, right: r } = ast;
-    if (l.type === 'var' && l.name === 't' && r.type === 'param') return r.name;
-    if (r.type === 'var' && r.name === 't' && l.type === 'param') return l.name;
-  }
-  for (const child of [ast.arg, ast.left, ast.right, ...(ast.args ?? [])]) {
-    const found = child && speedParam(child);
-    if (found) return found;
-  }
-  return null;
-}
-
-/**
  * Controls for the current panel state. Each: manifest fields plus
  * get() → 0..1 and set(v) / fire().
- * @param {object} p panel adapter (see main.js)
+ *
+ * No `rol` on formula params: the obvious candidate for macro.beweging, the
+ * multiplier k in `t * k`, is a phase scrubber rather than a speed (t grows
+ * without bound, so a change Δk jumps the phase by Δk·t) — ADR #31.
+ * @param {object} p panel adapter (see main.js); p.value(name) is the hand
+ *   value of a formula param (automation center / glide target)
  */
 export function panelControls(p) {
   const ranges = p.ranges();
-  const speed = speedParam(p.ast());
   const choice = (id, naam, keuzes, get, set, extra = {}) => ({
     id, naam, soort: 'keuze', keuzes, hint: 'kolom', groep: 'look', ...extra,
     get: () => (keuzes.length > 1 ? get() / (keuzes.length - 1) : 0),
@@ -57,10 +49,9 @@ export function panelControls(p) {
   });
   const params = Object.keys(p.state.params).slice(0, MAX_FORMULA_PARAMS).map((name) => ({
     id: name, naam: name, soort: 'waarde', hint: 'fader', groep: 'formula',
-    ...(name === speed ? { rol: 'macro.beweging' } : {}),
     get() {
       const r = ranges[name];
-      return r && r.max > r.min ? clamp01((p.state.params[name] - r.min) / (r.max - r.min)) : 0;
+      return r && r.max > r.min ? clamp01((p.value(name) - r.min) / (r.max - r.min)) : 0;
     },
     set(v) {
       const r = ranges[name];
@@ -107,6 +98,7 @@ export class HubLink {
     this.controls = [];
     this.manifestJson = '';
     this.sent = {};   // id → last 0..1 the hub knows
+    this.fired = {};  // trigger id → Date.now() of its last fire
     this.lastSend = 0;
   }
 
@@ -181,12 +173,18 @@ export class HubLink {
 
   /** Hub → panel. Unknown types and unknown ids are ignored (§1.5). */
   receive(msg) {
+    if (msg?.t === 'fout') return this.onStatus(`error: ${String(msg.reden ?? '?').slice(0, 80)}`);
     const c = this.controls.find((x) => x.id === msg?.id);
     if (!c) return;
     if (msg.t === 'zet' && c.set && Number.isFinite(msg.v)) {
       c.set(clamp01(msg.v));
       this.sent[c.id] = c.get(); // the hub already knows: no echo
     } else if (msg.t === 'trig' && c.fire && msg.aan === true) {
+      // a stuck or looping hub must not freeze the panel: dice recompiles
+      // two shaders per fire, so a flood would block the main thread
+      const now = Date.now();
+      if (now - (this.fired[c.id] ?? -Infinity) < TRIG_GAP_MS) return;
+      this.fired[c.id] = now;
       c.fire();
     }
   }

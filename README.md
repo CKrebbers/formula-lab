@@ -41,8 +41,20 @@ control panel drives it over BroadcastChannel (same browser, same origin).
 With the Varve hub (AV-app-hub) running, open the panel as
 `http://localhost:5174/?hub=ws://localhost:7700/app`: the APC40/LPD8 then drive the
 formula's constants, TAKE, dice, palette, coords, smooth and tone. Without `?hub=`
-nothing of this loads. `npm run test:hub` runs the hub's conformance test against
-the panel (needs an AV-app-hub checkout: `AV_APP_HUB=../av-app-hub`).
+nothing of this loads. Keep the panel window visible (display fullscreen on the
+other screen, not over the panel): browsers throttle timers in hidden windows, and
+the hub then loses the heartbeat.
+
+`npm run test:hub` runs the hub's conformance test against the panel in Chromium.
+It needs an AV-app-hub checkout and, when playwright-core has no browser of its
+own, a Chromium binary:
+
+```bash
+AV_APP_HUB=../av-app-hub CHROMIUM=/path/to/chromium npm run test:hub
+```
+
+`npm test` runs the protocol-level conformance test too when `AV_APP_HUB` (or a
+sibling `../av-app-hub`) exists, and says so when it skips it.
 
 ## Notes
 

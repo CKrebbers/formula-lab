@@ -10,12 +10,19 @@ flag nothing loads and nothing changes (ADR #31).
 
 - `src/sync/hub.js`: manifest from the current formula (a, b, c… as faders scaled
   to each slider's live range; take/dice as pads; palette/coords/tone as choices,
-  smooth as a switch; `macro.beweging` on the t-multiplier, `macro.kleur` on
-  palette). New params → new manifest + staat.
-- Hub values take the drag path, so CueProgram and the displays follow.
+  smooth as a switch; `macro.kleur` on palette). New params → new manifest + staat.
+- Hub values take the drag path, so CueProgram and the displays follow — also
+  while the panel's rAF is stalled (hidden window).
+- After review: the hub hears a param's hand value (automation center / glide
+  target), never an LFO's orbit, so APC/LPD8 pickup keeps its grip; triggers are
+  limited to one fire per 250 ms per id; no `macro.beweging` on the t-multiplier
+  (a phase scrubber, not a speed); `?hub=` stripped from permalinks; the hub
+  state stays visible in the status line, a hub `fout` included.
 - Dev server pinned to port 5174 (`strictPort`).
 - `npm run test:hub` runs AV-app-hub's conformance test (nep-hub) against the real
-  panel in Chromium, on dev and on dist, plus the no-flag proof.
+  panel in Chromium, on dev and on dist, plus the no-flag proof and end-to-end
+  checks (dice → only staat, new formula → manifest + staat, LFO → no zet stream,
+  zet reaches the displays with rAF stalled).
 
 **besluit:** done. Open: whether the hub should also drive mods/automation depth
 (B3 macros overlap) — parked until a real evening with the controllers.

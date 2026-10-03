@@ -30,13 +30,17 @@ palettes + tone mapping ✓. Ordered by agreed priority; sizes are sessions.
 - **B3 macros** — one knob drives N params through ranges; "DNA dial" walks
   a lineage path later.
 - **B4 tap-tempo** — global BPM; LFO rates snap to musical divisions; also
-  lets zero-player swaps land on bar boundaries.
+  lets zero-player swaps land on bar boundaries. A phase-continuous time rate
+  (`time += dt·rate`, displays included) belongs here — it is what the hub's
+  `macro.beweging` (LPD8 K4) should drive (ADR #31).
 - **B5 panic/freeze** — freeze all LFOs / black-out keys.
 - **C1 relay + instrument view** — ~60-line Node WebSocket relay (LAN, QR),
   `sync/remote.js` with the same interface as local.js; `?view=instrument`
   touch surface for phones/iPads. (1–2)
 - **C2 multi-touch + MIDI into the input bus** — every finger a control;
-  Web MIDI CC through the same routing table. (1)
+  Web MIDI CC through the same routing table. (1) — The APC40/LPD8 now reach
+  the panel through the Varve hub (ADR #31); Web MIDI in the app is only still
+  needed for playing without the hub.
 - **D1 input variables** — `in1..in4` in the formula whitelist + routing
   table: a finger/CC/remote slider becomes a term in the math. Highest
   symbiosis leverage. (1)
