@@ -103,6 +103,7 @@ src/
     snapshot.js archive.js url.js
   sync/
     local.js         # BroadcastChannel; transport-agnostic {type, payload}
+    hub.js           # Varve hub link (APC40/LPD8), only with ?hub=ws://… (ADR #31)
   audio/
     engine.js analysis.js
   ui/

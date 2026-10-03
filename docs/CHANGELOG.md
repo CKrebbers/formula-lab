@@ -2,6 +2,24 @@
 
 <!-- Session entries are appended at close with status / besluit per §12. -->
 
+## 2026-10-03 — Varve hub link (APC40 + LPD8), behind ?hub=
+
+**status:** the panel can be played from the APC40/LPD8 through the Varve hub
+(AV-app-hub). Open the panel with `?hub=ws://localhost:7700/app`; without the
+flag nothing loads and nothing changes (ADR #31).
+
+- `src/sync/hub.js`: manifest from the current formula (a, b, c… as faders scaled
+  to each slider's live range; take/dice as pads; palette/coords/tone as choices,
+  smooth as a switch; `macro.beweging` on the t-multiplier, `macro.kleur` on
+  palette). New params → new manifest + staat.
+- Hub values take the drag path, so CueProgram and the displays follow.
+- Dev server pinned to port 5174 (`strictPort`).
+- `npm run test:hub` runs AV-app-hub's conformance test (nep-hub) against the real
+  panel in Chromium, on dev and on dist, plus the no-flag proof.
+
+**besluit:** done. Open: whether the hub should also drive mods/automation depth
+(B3 macros overlap) — parked until a real evening with the controllers.
+
 ## 2026-09-01 — The panel becomes an instrument: cue/take, dice, starters (B1)
 
 **status:** the play face, not more language.

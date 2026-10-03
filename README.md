@@ -28,13 +28,21 @@ lives in your own browser's local storage.
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev      # http://localhost:5174 (fixed; av-kern owns 5173)
 npm test         # vitest
 npm run build    # dist/index.html — one portable file
 ```
 
 Open a second window with `?view=display` for a bare fullscreen output; the
 control panel drives it over BroadcastChannel (same browser, same origin).
+
+### Controllers via the Varve hub
+
+With the Varve hub (AV-app-hub) running, open the panel as
+`http://localhost:5174/?hub=ws://localhost:7700/app`: the APC40/LPD8 then drive the
+formula's constants, TAKE, dice, palette, coords, smooth and tone. Without `?hub=`
+nothing of this loads. `npm run test:hub` runs the hub's conformance test against
+the panel (needs an AV-app-hub checkout: `AV_APP_HUB=../av-app-hub`).
 
 ## Notes
 

@@ -63,6 +63,7 @@ function initPanel() {
   let currentParentIds = [];   // lineage chain: last saved/loaded snapshot
   let pendingOrigin = null;    // 'mutate' | 'crossover' when promoted from a sheet
   let pendingOperator = null;
+  let hub = null;              // Varve hub link, only with ?hub=ws://… (sync/hub.js)
 
   const renderer = new Renderer(canvas);
   const tileRenderer = new TileRenderer(128);
@@ -159,6 +160,7 @@ function initPanel() {
     sheet.clear();
     updateStatus();
     cueChanged(); // the panel canvas is the cue preview; displays wait for TAKE
+    hub?.refresh(); // new params → new manifest + staat
   }
 
   function setCoords(index) {
@@ -492,6 +494,19 @@ function initPanel() {
   });
 
   sync.on('hello', () => cue.hello()); // a new display gets program, never cue
+
+  // APC40/LPD8 via the Varve hub (ADR #31). Without ?hub= the module is never
+  // loaded: no socket, no timers, nothing changes.
+  const hubAddress = new URLSearchParams(location.search).get('hub');
+  if (hubAddress) {
+    import('./sync/hub.js').then(({ connectPanel }) => {
+      hub = connectPanel(hubAddress, {
+        state, ranges: () => sliders.ranges(), ast: () => currentParamAst,
+        setParam: (name, v) => sliders.setValue(name, v, { smooth: false }),
+        setCoords, setStyle, take, dice, status: (s) => updateStatus(` · hub ${s}`),
+      });
+    });
+  }
 
   el('take').addEventListener('click', take);
   el('dice').addEventListener('click', dice);

@@ -161,3 +161,30 @@
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate
     sines — deterministic, no RNG state. Phases de-synced per param via golden-ratio
     steps. Lock pauses automation. Not MIDI/audio/OSC — those stay v4 (§9).
+
+## 2026-10-03 — Varve hub link
+
+31. **APC40/LPD8 reach the panel through the Varve hub, behind `?hub=ws://…`**
+    (`src/sync/hub.js`, AV-app-hub PROTOCOL.md v1). One daemon on the machine owns
+    the controllers; the panel is a client like any other app. Not a backend: the
+    hub is a local, optional peer, and NEXUS (WS 8080) is untouched.
+    - **No flag, no change:** main.js only `import()`s the module when `?hub=` is
+      present — no socket, no timer, nothing evaluated. `tools/hub-check.mjs`
+      proves it in a browser (no request beyond the page, no WebSocket).
+    - **Only the panel**, never `?view=display`: displays follow the panel through
+      the existing cue/program path.
+    - **Same path as a hand:** a hub `zet` is scaled into the slider's CURRENT live
+      range and applied with `sliders.setValue(…, { smooth: false })` — the drag
+      path (onChange → state.params → `cue.live`). The hub can never push a param
+      past the slider's own bounds, and an active LFO orbits the new center as it
+      does after a drag. palette/coords/smooth/tone go through `setStyle`/
+      `setCoords`, `take`/`dice` through the buttons' functions.
+    - **Manifest = the current controls:** formula params a, b, c… as faders, the
+      param that directly multiplies `t` gets `macro.beweging`, palette gets
+      `macro.kleur`. No `standaard` in the manifest (values travel in `staat`), so a
+      dice — same names, new values — resends only `staat`; a formula with other
+      params resends manifest + `staat`.
+    - Own changes (drag, LFO, audio) reach the hub as `zet` at ≤ 10 Hz; heartbeat
+      after 0.8 s of silence; reconnect 0.5 → 1 → 2 → 5 s, 30 s after close 4001.
+    - Dev server pinned to 5174 with `strictPort` (av-kern owns 5173; the archive
+      lives in per-origin localStorage, so the port must not drift).
