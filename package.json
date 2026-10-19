@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:hub": "node tools/hub-check.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0",

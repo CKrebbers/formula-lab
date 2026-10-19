@@ -161,3 +161,57 @@
     the slider position (dragging retargets the orbit). 'walk' is layered incommensurate
     sines — deterministic, no RNG state. Phases de-synced per param via golden-ratio
     steps. Lock pauses automation. Not MIDI/audio/OSC — those stay v4 (§9).
+
+## 2026-10-03 — Varve hub link
+
+31. **APC40/LPD8 reach the panel through the Varve hub, behind `?hub=ws://…`**
+    (`src/sync/hub.js`, AV-app-hub PROTOCOL.md v1). One daemon on the machine owns
+    the controllers; the panel is a client like any other app. Not a backend: the
+    hub is a local, optional peer, and NEXUS (WS 8080) is untouched.
+    - **No flag, no change:** main.js only `import()`s the module when `?hub=` is
+      present. In dev the module is then never even fetched; in the single-file
+      dist vite-plugin-singlefile inlines it (+5.4 kB, its top level is only
+      definitions), but without `?hub=` it does nothing — no socket, no timer.
+      `tools/hub-check.mjs` proves it in a browser (no request beyond the page,
+      no WebSocket). `?hub=` is stripped from copied permalinks, so a shared link
+      never switches the link on for someone else.
+    - **Only the panel**, never `?view=display`: displays follow the panel through
+      the existing cue/program path.
+    - **Same path as a hand:** a hub `zet` is scaled into the slider's CURRENT live
+      range and applied with `sliders.setValue(…, { smooth: false })` — the drag
+      path (onChange → state.params → `cue.live`). The hub can never push a param
+      past the slider's own bounds, and an active LFO orbits the new center as it
+      does after a drag. palette/coords/smooth/tone go through `setStyle`/
+      `setCoords`, `take`/`dice` through the buttons' functions. While the panel's
+      rAF is stalled (hidden/minimised window) a hub `zet` also calls
+      `cue.live('params')` itself, so the displays keep following the faders.
+    - **The hub hears what it sets:** a formula param reports its HAND value
+      (`SliderPanel.baseValue`: glide target, else an active automation's center,
+      else the slider) — never the orbit of an LFO/♪/gesture. Reporting the orbit
+      would move the hub's pickup target every 100 ms and the APC fader / LPD8
+      knob would lose its grip after one touch.
+    - **No `macro.beweging`:** the natural candidate, k in `t * k`, is a phase
+      scrubber, not a speed — t is seconds since start, so Δk jumps the phase by
+      Δk·t (one LPD8 step ≈ 2.4 rad after a minute), and its range is symmetric
+      around the literal, so knob 0 means fast backwards. It stays a plain fader.
+      A real tempo control (phase-continuous `time += dt·rate`, displays
+      included) would earn the role; see TODO B4. Also no `macro.dichtheid` and no
+      `paniek` trigger for now: decide after the first evening with the hardware.
+    - Triggers are rate-limited to one fire per 250 ms per id: dice recompiles
+      two shaders, and a hub stuck in a loop must not freeze the panel mid-set.
+    - **Manifest = the current controls:** formula params a, b, c… as faders, the
+      param that directly multiplies `t` gets `macro.beweging`, palette gets
+      `macro.kleur`. No `standaard` in the manifest (values travel in `staat`), so a
+      dice — same names, new values — resends only `staat`; a formula with other
+      params resends manifest + `staat`.
+    - Own changes (drag, dice, load, style) reach the hub as `zet` at ≤ 10 Hz;
+      heartbeat after 0.8 s of silence; reconnect 0.5 → 1 → 2 → 5 s, 30 s after
+      close 4001. The last hub state (connected / offline / replaced / a hub
+      `fout`) stays at the end of the status line.
+    - **The panel window must stay visible:** Chrome throttles timers in hidden
+      windows (1/s, and ~1/min after 5 min of intensive throttling), so the
+      heartbeat — and with it the hub's view of the app — is only reliable while
+      the panel is on screen. Put the display fullscreen on the other monitor,
+      not over the panel. (A Worker heartbeat would lift this; not needed yet.)
+    - Dev server pinned to 5174 with `strictPort` (av-kern owns 5173; the archive
+      lives in per-origin localStorage, so the port must not drift).

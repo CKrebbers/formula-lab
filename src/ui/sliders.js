@@ -374,6 +374,20 @@ export class SliderPanel {
     return out;
   }
 
+  /**
+   * The value a hand put there: a glide's target, an active automation's
+   * center (not its orbit), else the slider position. What a controller
+   * sets, so it is also what a controller is told (sync/hub.js).
+   */
+  baseValue(name) {
+    const row = this.rows[name];
+    if (!row) return undefined;
+    if (this.glides[name]) return this.glides[name].to;
+    const auto = this.autos[name];
+    if (auto && auto.mode !== 'off' && !this.locks[name]) return auto.center;
+    return parseFloat(row.slider.value);
+  }
+
   /** Set a param's lock from code (snapshot load); reuses the button handler. */
   setLock(name, locked) {
     if (this.rows[name] && this.locks[name] !== !!locked) {

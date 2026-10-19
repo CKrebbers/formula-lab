@@ -103,13 +103,14 @@ src/
     snapshot.js archive.js url.js
   sync/
     local.js         # BroadcastChannel; transport-agnostic {type, payload}
+    hub.js           # Varve hub link (APC40/LPD8), only with ?hub=ws://… (ADR #31)
   audio/
     engine.js analysis.js
   ui/
     editor.js sliders.js sheet.js archive.js lineage.js elites.js mods.js packs.js families.js
   families/
     index.js packs.js prompt.js + one file per family
-tests/               # 16 vitest files, 201 tests
+tests/               # 18 vitest files, 236 tests (+ npm run test:hub, browser)
 docs/
   CHANGELOG.md DECISIONS.md TODO.md ROADMAP-SYMBIOSIS.md FAMILY-PACKS.md GROK-BRIEFING.md
 
@@ -155,7 +156,7 @@ Top of that list right now: Clay plays a real evening (the v1/v2 DoDs are
 usage-based; the friction list from that evening reorders everything else).
 After that, in order: cue/take with crossfade → XY pad / macros / tap-tempo →
 LAN relay + ?view=instrument for phones/iPads → multi-touch + MIDI into one input
-bus → in1..in4 as formula variables (highest symbiosis leverage) → feedback
+bus (APC40/LPD8 already arrive via the Varve hub, ADR #31) → in1..in4 as formula variables (highest symbiosis leverage) → feedback
 buffer + self-reading stats → implicit preference learning → gesture-as-genotype
 → meta-formulas. Parked: attractors + Sprott button, in-app LLM mutator,
 phase-diagram nav, lineage tree, post-FX/dither, OSC bridge, exports.
