@@ -1,7 +1,7 @@
 # Formula Lab — Claude Code session: Play face (cue/take + dice + cold-start)
 
 Paste this whole file as the session brief. Work in the local repo:
-`/Users/claykrebbers/Desktop/1. Projects/Visual app`
+the local repo checkout
 No git remote. English UI, commits, ADRs, CHANGELOG. WebGL2 only. No React, no backend.
 One coherent playability session — not Phase B2–B5, not language features.
 
