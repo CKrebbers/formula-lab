@@ -1,5 +1,12 @@
 # Formula Lab
 
+> **README FIRST**
+> - **What:** a browser instrument where a formula `f(x, y, t)` becomes a live animated image, with tools that search for formulas worth keeping (mutation, crossover, a zero-player explorer) and play them live (sliders, audio bands, cue/take).
+> - **For whom:** visual artists and creative coders who like glitch, dither and texture and are comfortable with a terminal. Built for Clay's own live-AV setup; a personal tool, no support promised.
+> - **Install:** Node 20 or newer, then `git clone https://github.com/CKrebbers/formula-lab && cd formula-lab && npm ci && npm run dev` and open http://localhost:5174. For one portable file: `npm run build`, then serve `dist/` with any static server (for example `npx vite preview`) — audio capture needs HTTPS or localhost, so do not open it from `file://`.
+> - **Tested on:** `npm ci`, `npm test` (235 pass, 1 skipped: the optional AV-app-hub conformance test) and `npm run build` on Node 22 (Linux); the deploy workflow builds on Node 20. In a real browser it is used on Chrome (macOS) with WebGL2; other browsers and a hosted copy are untested by anyone but its author. Controllers (APC40/LPD8) need the separate AV-app-hub and are optional.
+> - **Price and licence:** free, MIT (see `LICENSE`), no warranty.
+
 A browser instrument where a mathematical formula `f(x, y, t)` becomes a live
 animated image — and where the tool helps you *search* for formulas worth
 keeping, instead of only rendering the ones you already thought of.
@@ -27,7 +34,7 @@ lives in your own browser's local storage.
 ## Run it locally
 
 ```bash
-npm install
+npm ci
 npm run dev      # http://localhost:5174 (fixed; av-kern owns 5173)
 npm test         # vitest
 npm run build    # dist/index.html — one portable file
